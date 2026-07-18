@@ -79,17 +79,33 @@ const HEADER_SPECS: HeaderSpec[] = [
       if (!value) return { isWeak: false, penalty: 0 };
       const lower = value.toLowerCase();
       const reasons: string[] = [];
-      if (lower.includes("'unsafe-inline'"))
+      let penalty = 0;
+      if (lower.includes("'unsafe-inline'")) {
         reasons.push("contains 'unsafe-inline' which allows inline scripts and styles");
-      if (lower.includes("'unsafe-eval'"))
+        penalty += 5;
+      }
+      if (lower.includes("'unsafe-eval'")) {
         reasons.push("contains 'unsafe-eval' which allows eval() and similar functions");
-      if (lower.includes('* ')) reasons.push('uses a wildcard source which permits loading from any origin');
-      if (lower.includes('http:')) reasons.push('references insecure http: sources');
-      if (lower.includes('*://')) reasons.push('uses a protocol wildcard which permits insecure origins');
-      if (!lower.includes('default-src') && !lower.includes('script-src'))
-        reasons.push('lacks a default-src or script-src directive');
+        penalty += 5;
+      }
+      if (lower.includes('* ')) {
+        reasons.push('uses a wildcard source which permits loading from any origin');
+        penalty += 5;
+      }
+      if (lower.includes('http:')) {
+        reasons.push('references insecure http: sources');
+        penalty += 4;
+      }
+      if (lower.includes('*://')) {
+        reasons.push('uses a protocol wildcard which permits insecure origins');
+        penalty += 4;
+      }
+      if (!lower.includes('default-src') && !lower.includes('script-src')) {
+        reasons.push('lacks a default-src or script-src directive, providing minimal script protection');
+        penalty += 10;
+      }
       if (reasons.length === 0) return { isWeak: false, penalty: 0 };
-      return { isWeak: true, reason: `CSP ${reasons.join('; ')}.`, penalty: Math.min(reasons.length * 4, 15) };
+      return { isWeak: true, reason: `CSP ${reasons.join('; ')}.`, penalty: Math.min(penalty, 18) };
     },
   },
   {
@@ -190,6 +206,15 @@ const HEADER_SPECS: HeaderSpec[] = [
       'COEP prevents cross-origin resources from being loaded without explicit permission, mitigating Spectre-class attacks.',
     exampleValue: 'require-corp',
     isOptional: true,
+    checkWeakness: (value) => {
+      if (!value) return { isWeak: false, penalty: 0 };
+      const lower = value.toLowerCase().trim();
+      if (lower === 'require-corp') return { isWeak: false, penalty: 0 };
+      if (lower === 'credentialless') return { isWeak: false, penalty: 0 };
+      if (lower === 'unsafe-none')
+        return { isWeak: true, reason: 'COOP set to unsafe-none provides no isolation', penalty: 3 };
+      return { isWeak: true, reason: 'unrecognized COEP value', penalty: 3 };
+    },
   },
   {
     key: 'cross-origin-opener-policy',
@@ -203,6 +228,15 @@ const HEADER_SPECS: HeaderSpec[] = [
       'COOP prevents cross-origin documents from interacting with your page, defending against cross-origin attacks.',
     exampleValue: "same-origin",
     isOptional: true,
+    checkWeakness: (value) => {
+      if (!value) return { isWeak: false, penalty: 0 };
+      const lower = value.toLowerCase().trim();
+      if (lower === 'same-origin' || lower === 'same-origin-allow-popups')
+        return { isWeak: false, penalty: 0 };
+      if (lower === 'unsafe-none' || lower === 'same-origin-plus-coep')
+        return { isWeak: true, reason: 'COOP value provides minimal cross-origin isolation', penalty: 3 };
+      return { isWeak: true, reason: 'unrecognized COOP value', penalty: 3 };
+    },
   },
   {
     key: 'cross-origin-resource-policy',
@@ -216,6 +250,14 @@ const HEADER_SPECS: HeaderSpec[] = [
       'CORP prevents your resources from being loaded by arbitrary sites, reducing the risk of cross-origin attacks.',
     exampleValue: 'same-origin',
     isOptional: true,
+    checkWeakness: (value) => {
+      if (!value) return { isWeak: false, penalty: 0 };
+      const lower = value.toLowerCase().trim();
+      if (lower === 'same-origin' || lower === 'same-site') return { isWeak: false, penalty: 0 };
+      if (lower === 'cross-origin')
+        return { isWeak: true, reason: 'CORP cross-origin allows any site to embed this resource', penalty: 2 };
+      return { isWeak: false, penalty: 0 };
+    },
   },
   {
     key: 'origin-agent-cluster',
