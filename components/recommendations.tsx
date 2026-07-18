@@ -127,13 +127,28 @@ export function Recommendations({ recommendations }: RecommendationsProps) {
                   </div>
                   <div className="rounded-lg bg-background/60 p-2.5">
                     <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      <Code2 className="h-3.5 w-3.5" />
+                      <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
                       Example Implementation
                     </p>
                     <code className="block font-mono text-xs text-primary">
                       {rec.exampleImplementation}
                     </code>
                   </div>
+                  {rec.references && rec.references.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {rec.references.map((ref) => (
+                        <a
+                          key={ref}
+                          href={ref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary underline-offset-2 hover:underline"
+                        >
+                          {ref.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <Badge variant="outline" className={`shrink-0 ${config.className}`}>
                   {config.label}

@@ -13,6 +13,7 @@ import {
   FileText,
   Check,
   Timer,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SecurityScoreCard } from '@/components/security-score-card';
 import { HttpsStatusCard } from '@/components/https-status-card';
+import { ServerInfoCard } from '@/components/server-info-card';
+import { CookiesCard } from '@/components/cookies-card';
 import { SecurityHeadersTable } from '@/components/security-headers-table';
 import { Recommendations } from '@/components/recommendations';
 import { RawHeadersAccordion } from '@/components/raw-headers-accordion';
@@ -85,6 +88,8 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
     toast({ title: 'Report exported', description: 'Security report downloaded as text.' });
   };
 
+  const hasRedirect = result.finalUrl !== result.url;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -98,19 +103,27 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
         transition={{ delay: 0.1 }}
         className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Globe className="h-4 w-4 shrink-0" />
-            <span className="truncate font-mono">{result.url}</span>
+            <Globe className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="truncate font-mono" title={result.url}>{result.url}</span>
           </div>
+          {hasRedirect && (
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+              <ArrowRight className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="truncate font-mono" title={result.finalUrl}>
+                Redirected to {result.finalUrl}
+              </span>
+            </div>
+          )}
           <h2 className="mt-1 text-2xl font-bold sm:text-3xl">Scan Results</h2>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
+              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
               {scanDate}
             </span>
             <span className="flex items-center gap-1.5">
-              <Timer className="h-3.5 w-3.5" />
+              <Timer className="h-3.5 w-3.5" aria-hidden="true" />
               Completed in {durationText}
             </span>
           </div>
@@ -124,9 +137,9 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
             aria-label="Copy results to clipboard"
           >
             {copied ? (
-              <Check className="h-4 w-4 text-success" />
+              <Check className="h-4 w-4 text-success" aria-hidden="true" />
             ) : (
-              <Copy className="h-4 w-4" />
+              <Copy className="h-4 w-4" aria-hidden="true" />
             )}
             Copy
           </Button>
@@ -137,7 +150,7 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
             onClick={handleShare}
             aria-label="Share results"
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-4 w-4" aria-hidden="true" />
             Share
           </Button>
           <DropdownMenu>
@@ -148,17 +161,17 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
                 className="gap-2 border-border bg-secondary/30"
                 aria-label="Export results"
               >
-                <Download className="h-4 w-4" />
+                <Download className="h-4 w-4" aria-hidden="true" />
                 Export
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleExportJson} className="gap-2">
-                <FileJson className="h-4 w-4" />
+                <FileJson className="h-4 w-4" aria-hidden="true" />
                 Export as JSON
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportReport} className="gap-2">
-                <FileText className="h-4 w-4" />
+                <FileText className="h-4 w-4" aria-hidden="true" />
                 Download Report
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -169,7 +182,7 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
             onClick={onRescan}
             aria-label="Rescan website"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
             Rescan
           </Button>
         </div>
@@ -182,7 +195,11 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
           transition={{ delay: 0.2 }}
           className="lg:col-span-1"
         >
-          <SecurityScoreCard score={result.score} grade={result.grade} />
+          <SecurityScoreCard
+            score={result.score}
+            grade={result.grade}
+            breakdown={result.scoreBreakdown}
+          />
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -193,6 +210,16 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
           <HttpsStatusCard https={result.https} />
         </motion.div>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2"
+      >
+        <ServerInfoCard server={result.server} />
+        <CookiesCard cookies={result.cookies} />
+      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

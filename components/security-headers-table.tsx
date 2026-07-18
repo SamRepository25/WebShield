@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Lightbulb,
+  FileWarning,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,12 @@ const statusConfig: Record<
     className: 'border-warning/30 bg-warning/10 text-warning',
     rowClass: 'bg-warning/5',
   },
+  'report-only': {
+    label: 'Report-Only',
+    icon: FileWarning,
+    className: 'border-primary/30 bg-primary/10 text-primary',
+    rowClass: 'bg-primary/5',
+  },
 };
 
 const severityColors: Record<string, string> = {
@@ -57,6 +64,14 @@ const severityColors: Record<string, string> = {
   medium: 'text-warning',
   low: 'text-primary',
   info: 'text-muted-foreground',
+};
+
+const categoryLabels: Record<string, string> = {
+  transport: 'Transport',
+  content: 'Content',
+  browser: 'Browser',
+  cookies: 'Cookies',
+  infrastructure: 'Infra',
 };
 
 export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
@@ -73,7 +88,7 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-lg">
-            <Info className="h-5 w-5 text-primary" />
+            <Info className="h-5 w-5 text-primary" aria-hidden="true" />
             Security Headers
           </span>
           <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
@@ -86,10 +101,11 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="w-[30%] min-w-[180px]">Header</TableHead>
+                <TableHead className="w-[28%] min-w-[170px]">Header</TableHead>
                 <TableHead className="w-[12%] min-w-[90px]">Status</TableHead>
                 <TableHead className="w-[10%] min-w-[80px]">Severity</TableHead>
-                <TableHead className="min-w-[180px]">Value</TableHead>
+                <TableHead className="w-[10%] min-w-[70px]">Points</TableHead>
+                <TableHead className="min-w-[160px]">Value</TableHead>
                 <TableHead className="w-[8%] min-w-[60px]">Details</TableHead>
               </TableRow>
             </TableHeader>
@@ -116,7 +132,7 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
                           variant="outline"
                           className={`gap-1 ${config.className}`}
                         >
-                          <StatusIcon className="h-3 w-3" />
+                          <StatusIcon className="h-3 w-3" aria-hidden="true" />
                           {config.label}
                         </Badge>
                       </TableCell>
@@ -125,6 +141,11 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
                           className={`text-xs font-medium uppercase ${severityColors[header.severity]}`}
                         >
                           {header.severity}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {header.pointsAwarded.toFixed(1)}/{header.maxPoints}
                         </span>
                       </TableCell>
                       <TableCell className="max-w-xs">
@@ -142,9 +163,9 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
                           aria-expanded={isExpanded}
                         >
                           {isExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
+                            <ChevronUp className="h-4 w-4" aria-hidden="true" />
                           ) : (
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-4 w-4" aria-hidden="true" />
                           )}
                         </button>
                       </TableCell>
@@ -158,8 +179,18 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
                           transition={{ duration: 0.2 }}
                           className="border-border"
                         >
-                          <TableCell colSpan={5} className="bg-secondary/20 p-4">
+                          <TableCell colSpan={6} className="bg-secondary/20 p-4">
                             <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                                  {categoryLabels[header.category]}
+                                </Badge>
+                                {header.status === 'report-only' && (
+                                  <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                                    Monitoring mode
+                                  </Badge>
+                                )}
+                              </div>
                               <div>
                                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                   Description
@@ -179,14 +210,25 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
                               {header.isWeak && header.weaknessReason && (
                                 <div className="rounded-lg bg-warning/10 p-3 ring-1 ring-warning/20">
                                   <p className="flex items-start gap-2 text-sm text-warning">
-                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                                     <span>{header.weaknessReason}</span>
+                                  </p>
+                                </div>
+                              )}
+                              {header.status === 'report-only' && (
+                                <div className="rounded-lg bg-primary/10 p-3 ring-1 ring-primary/20">
+                                  <p className="flex items-start gap-2 text-sm text-primary">
+                                    <FileWarning className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                                    <span>
+                                      Report-Only CSP detected. This monitors violations without
+                                      enforcement. Consider switching to enforcement once confident.
+                                    </span>
                                   </p>
                                 </div>
                               )}
                               <div>
                                 <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                  <Lightbulb className="h-3.5 w-3.5" />
+                                  <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
                                   Example Secure Value
                                 </p>
                                 <code className="block rounded-md bg-background/60 p-2.5 font-mono text-xs text-primary">
@@ -207,6 +249,7 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
 
         <p className="mt-4 text-xs text-muted-foreground">
           Click any row to view detailed analysis, why the header matters, and an example secure value.
+          Points are awarded based on presence and configuration quality.
         </p>
       </CardContent>
     </Card>

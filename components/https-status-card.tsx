@@ -11,10 +11,10 @@ import {
   ArrowRightLeft,
   ShieldCheck,
   ShieldAlert,
+  Rocket,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import type { ScanResult } from '@/lib/types';
 
 interface HttpsStatusCardProps {
@@ -32,14 +32,15 @@ export function HttpsStatusCard({ https }: HttpsStatusCardProps) {
         className={`absolute inset-0 opacity-10 ${
           isSecure ? 'bg-success' : 'bg-destructive'
         }`}
+        aria-hidden="true"
       />
       <CardHeader className="relative">
         <CardTitle className="flex items-center justify-between text-base font-medium text-muted-foreground">
           <span className="flex items-center gap-2">
             {isSecure ? (
-              <Lock className="h-4 w-4 text-success" />
+              <Lock className="h-4 w-4 text-success" aria-hidden="true" />
             ) : (
-              <Unlock className="h-4 w-4 text-destructive" />
+              <Unlock className="h-4 w-4 text-destructive" aria-hidden="true" />
             )}
             HTTPS Status
           </span>
@@ -72,9 +73,9 @@ export function HttpsStatusCard({ https }: HttpsStatusCardProps) {
             }`}
           >
             {isSecure ? (
-              <ShieldCheck className="h-7 w-7 text-success" />
+              <ShieldCheck className="h-7 w-7 text-success" aria-hidden="true" />
             ) : (
-              <ShieldAlert className="h-7 w-7 text-destructive" />
+              <ShieldAlert className="h-7 w-7 text-destructive" aria-hidden="true" />
             )}
           </div>
           <div className="min-w-0">
@@ -106,6 +107,24 @@ export function HttpsStatusCard({ https }: HttpsStatusCardProps) {
                 : https.redirectFromHttp
                 ? 'success'
                 : 'warning'
+            }
+          />
+          <InfoRow
+            icon={Rocket}
+            label="HSTS Preload Ready"
+            value={
+              https.enabled
+                ? https.hstsPreloadReady
+                  ? 'Yes'
+                  : 'No'
+                : 'N/A'
+            }
+            variant={
+              !https.enabled
+                ? 'neutral'
+                : https.hstsPreloadReady
+                ? 'success'
+                : 'neutral'
             }
           />
           <InfoRow
@@ -156,20 +175,19 @@ interface InfoRowProps {
 }
 
 function InfoRow({ icon: Icon, label, value, warning, variant }: InfoRowProps) {
-  const colorClass =
-    warning
-      ? 'text-warning'
-      : variant === 'success'
-      ? 'text-success'
-      : variant === 'warning'
-      ? 'text-warning'
-      : variant === 'destructive'
-      ? 'text-destructive'
-      : 'text-primary';
+  const colorClass = warning
+    ? 'text-warning'
+    : variant === 'success'
+    ? 'text-success'
+    : variant === 'warning'
+    ? 'text-warning'
+    : variant === 'destructive'
+    ? 'text-destructive'
+    : 'text-primary';
 
   return (
     <div className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3">
-      <Icon className={`h-4 w-4 shrink-0 ${colorClass}`} />
+      <Icon className={`h-4 w-4 shrink-0 ${colorClass}`} aria-hidden="true" />
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
         <p

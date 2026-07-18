@@ -9,10 +9,12 @@ import {
   ShieldX,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { ScoreBreakdown } from '@/lib/types';
 
 interface SecurityScoreCardProps {
   score: number;
   grade: string;
+  breakdown?: ScoreBreakdown;
 }
 
 function getScoreColor(score: number) {
@@ -23,7 +25,17 @@ function getScoreColor(score: number) {
   return { color: 'hsl(var(--destructive))', label: 'Critical', Icon: ShieldX };
 }
 
-export function SecurityScoreCard({ score, grade }: SecurityScoreCardProps) {
+const CATEGORY_LABELS: Record<keyof ScoreBreakdown, string> = {
+  transport: 'Transport (HTTPS/HSTS)',
+  content: 'Content Security (CSP)',
+  browser: 'Browser Security',
+  cookies: 'Cookie Security',
+  infrastructure: 'Infrastructure',
+  total: 'Total',
+  maxTotal: 'Max',
+};
+
+export function SecurityScoreCard({ score, grade, breakdown }: SecurityScoreCardProps) {
   const [animatedScore, setAnimatedScore] = useState(0);
   const { color, label, Icon } = getScoreColor(score);
   const radius = 80;
@@ -46,6 +58,13 @@ export function SecurityScoreCard({ score, grade }: SecurityScoreCardProps) {
     }, duration / steps);
     return () => clearInterval(interval);
   }, [score]);
+
+  const categories: Array<{ key: keyof ScoreBreakdown; value: number }> = breakdown
+    ? (['transport', 'content', 'browser', 'cookies', 'infrastructure'] as const).map((k) => ({
+        key: k,
+        value: breakdown[k] as number,
+      }))
+    : [];
 
   return (
     <Card
@@ -121,6 +140,33 @@ export function SecurityScoreCard({ score, grade }: SecurityScoreCardProps) {
             <p className="text-xs text-muted-foreground">Overall grade</p>
           </div>
         </div>
+
+        {breakdown && categories.length > 0 && (
+          <div className="mt-6 w-full space-y-2">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Score Breakdown
+            </p>
+            {categories.map(({ key, value }) => (
+              <div key={key} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{CATEGORY_LABELS[key]}</span>
+                  <span className="font-mono font-medium text-foreground">
+                    {value.toFixed(1)}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: color }}
+                    initial={{ width: '0%' }}
+                    animate={{ width: `${Math.min((value / 40) * 100, 100)}%` }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

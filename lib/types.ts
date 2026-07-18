@@ -1,4 +1,4 @@
-export type HeaderStatus = 'present' | 'missing' | 'weak';
+export type HeaderStatus = 'present' | 'missing' | 'weak' | 'report-only';
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
@@ -12,11 +12,28 @@ export interface SecurityHeader {
   severity: Severity;
   isWeak: boolean;
   weaknessReason?: string;
+  pointsAwarded: number;
+  maxPoints: number;
+  category: 'transport' | 'content' | 'browser' | 'cookies' | 'infrastructure';
 }
 
 export interface RawHeader {
   name: string;
   value: string;
+}
+
+export interface CookieInfo {
+  name: string;
+  secure: boolean;
+  httpOnly: boolean;
+  sameSite: string;
+  weaknesses: string[];
+}
+
+export interface RedirectStep {
+  url: string;
+  status: number;
+  https: boolean;
 }
 
 export interface HttpsInfo {
@@ -27,6 +44,18 @@ export interface HttpsInfo {
   issuer: string;
   protocol: string;
   daysRemaining: number;
+  hstsPreloadReady: boolean;
+}
+
+export interface ServerInfo {
+  server: string;
+  poweredBy: string;
+  xPoweredBy: string;
+  compression: string;
+  finalStatusCode: number;
+  redirectCount: number;
+  redirectChain: RedirectStep[];
+  mixedContent: boolean;
 }
 
 export interface Recommendation {
@@ -37,6 +66,7 @@ export interface Recommendation {
   impact: string;
   exampleImplementation: string;
   severity: Severity;
+  references?: string[];
 }
 
 export interface Vulnerabilities {
@@ -45,15 +75,30 @@ export interface Vulnerabilities {
   high: number;
   medium: number;
   low: number;
+  info: number;
+}
+
+export interface ScoreBreakdown {
+  transport: number;
+  content: number;
+  browser: number;
+  cookies: number;
+  infrastructure: number;
+  total: number;
+  maxTotal: number;
 }
 
 export interface ScanResult {
   url: string;
+  finalUrl: string;
   scannedAt: string;
   scanDurationMs: number;
   score: number;
   grade: string;
+  scoreBreakdown: ScoreBreakdown;
   https: HttpsInfo;
+  server: ServerInfo;
+  cookies: CookieInfo[];
   headers: SecurityHeader[];
   rawHeaders: RawHeader[];
   recommendations: Recommendation[];
