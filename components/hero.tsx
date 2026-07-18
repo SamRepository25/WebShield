@@ -32,9 +32,12 @@ export function Hero({ onScan, isScanning }: HeroProps) {
   };
 
   return (
-    <section className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
-      <div className="absolute inset-0 grid-bg opacity-30" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+    <section
+      className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28"
+      aria-label="Website security scanner"
+    >
+      <div className="absolute inset-0 grid-bg opacity-30" aria-hidden="true" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" aria-hidden="true" />
 
       <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6">
         <motion.div
@@ -43,7 +46,7 @@ export function Hero({ onScan, isScanning }: HeroProps) {
           transition={{ duration: 0.5 }}
           className="mb-6 inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 text-xs font-medium text-muted-foreground"
         >
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2 w-2" aria-hidden="true">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
           </span>
@@ -79,17 +82,27 @@ export function Hero({ onScan, isScanning }: HeroProps) {
           transition={{ duration: 0.5, delay: 0.3 }}
           id="scanner"
           className="mx-auto mt-10 max-w-2xl scroll-mt-24"
+          aria-label="Website scan form"
         >
           <div className="glass-strong relative rounded-2xl p-2 shadow-2xl">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative flex-1">
-                <Globe className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                <Globe
+                  className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <label htmlFor="url-input" className="sr-only">
+                  Website URL to scan
+                </label>
                 <Input
+                  id="url-input"
                   type="text"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="example.com"
                   disabled={isScanning}
+                  aria-label="Website URL"
+                  aria-describedby="scanner-hint"
                   className="h-14 border-0 bg-transparent pl-12 text-base shadow-none focus-visible:ring-0"
                 />
               </div>
@@ -101,24 +114,31 @@ export function Hero({ onScan, isScanning }: HeroProps) {
               >
                 {isScanning ? (
                   <>
-                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                    <span
+                      className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent"
+                      aria-hidden="true"
+                    />
                     Scanning...
                   </>
                 ) : (
                   <>
-                    <Search className="h-5 w-5" />
+                    <Search className="h-5 w-5" aria-hidden="true" />
                     Scan Website
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </>
                 )}
               </Button>
             </div>
           </div>
 
+          <p id="scanner-hint" className="sr-only">
+            Enter a website URL and click Scan Website to analyze its security headers and HTTPS status.
+          </p>
+
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
             {trustBadges.map((badge) => (
               <div key={badge} className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden="true" />
                 {badge}
               </div>
             ))}
@@ -131,7 +151,7 @@ export function Hero({ onScan, isScanning }: HeroProps) {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="mt-12 flex items-center justify-center gap-2 text-xs text-muted-foreground"
         >
-          <Zap className="h-3.5 w-3.5 text-warning" />
+          <Zap className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
           No signup required — results in seconds
         </motion.div>
       </div>

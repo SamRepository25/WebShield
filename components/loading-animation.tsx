@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Loader2, Shield } from 'lucide-react';
-import { loadingSteps } from '@/lib/mock-data';
+import { loadingSteps } from '@/lib/loading-steps';
 
 interface LoadingAnimationProps {
   url: string;
@@ -25,18 +25,23 @@ export function LoadingAnimation({ url }: LoadingAnimationProps) {
     return () => clearInterval(interval);
   }, []);
 
+  const progress = Math.round(((currentStep + 1) / loadingSteps.length) * 100);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       className="mx-auto max-w-2xl px-4"
+      role="status"
+      aria-live="polite"
+      aria-label={`Scanning ${url} in progress`}
     >
       <div className="glass-strong relative overflow-hidden rounded-2xl p-8 sm:p-12">
-        <div className="absolute inset-0 grid-bg opacity-20" />
+        <div className="absolute inset-0 grid-bg opacity-20" aria-hidden="true" />
 
         <div className="relative flex flex-col items-center">
-          <div className="relative mb-8 h-32 w-32">
+          <div className="relative mb-8 h-32 w-32" aria-hidden="true">
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
@@ -63,7 +68,9 @@ export function LoadingAnimation({ url }: LoadingAnimationProps) {
           </div>
 
           <h3 className="mb-2 text-xl font-semibold">Scanning in progress</h3>
-          <p className="mb-8 text-sm text-muted-foreground">{url}</p>
+          <p className="mb-2 truncate text-sm text-muted-foreground" title={url}>
+            {url}
+          </p>
 
           <div className="w-full max-w-md space-y-2.5">
             {loadingSteps.map((step, index) => (
@@ -101,15 +108,21 @@ export function LoadingAnimation({ url }: LoadingAnimationProps) {
             ))}
           </div>
 
-          <div className="mt-8 h-1 w-full max-w-md overflow-hidden rounded-full bg-secondary">
-            <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60"
-              initial={{ width: '0%' }}
-              animate={{
-                width: `${((currentStep + 1) / loadingSteps.length) * 100}%`,
-              }}
-              transition={{ duration: 0.3 }}
-            />
+          <div className="mt-8 flex items-center gap-3">
+            <div
+              className="h-1 w-full max-w-md overflow-hidden rounded-full bg-secondary"
+              aria-hidden="true"
+            >
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60"
+                initial={{ width: '0%' }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            <span className="w-10 text-right text-xs font-medium text-muted-foreground">
+              {progress}%
+            </span>
           </div>
         </div>
       </div>

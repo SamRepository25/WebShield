@@ -1,9 +1,21 @@
 import { Shield, Github, Twitter, Linkedin } from 'lucide-react';
 
 const footerLinks = {
-  Product: ['Features', 'Pricing', 'API Docs', 'Changelog'],
-  Resources: ['Documentation', 'Security Blog', 'Guides', 'FAQ'],
-  Company: ['About', 'Contact', 'Privacy', 'Terms'],
+  Product: [
+    { label: 'Features', href: '#features' },
+    { label: 'How It Works', href: '#how-it-works' },
+    { label: 'Scan', href: '#scanner' },
+  ],
+  Resources: [
+    { label: 'Security Headers Guide', href: '#features' },
+    { label: 'HTTPS & SSL', href: '#features' },
+    { label: 'Vulnerability Detection', href: '#features' },
+  ],
+  Company: [
+    { label: 'About', href: '#' },
+    { label: 'Contact', href: '#' },
+    { label: 'Privacy', href: '#' },
+  ],
 };
 
 export function Footer() {
@@ -55,12 +67,12 @@ export function Footer() {
               <h4 className="mb-4 text-sm font-semibold text-foreground">{category}</h4>
               <ul className="space-y-2.5">
                 {links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <a
-                      href="#"
+                      href={link.href}
                       className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                     >
-                      {link}
+                      {link.label}
                     </a>
                   </li>
                 ))}
@@ -74,7 +86,7 @@ export function Footer() {
             &copy; 2026 WebShield. All rights reserved.
           </p>
           <p className="text-xs text-muted-foreground">
-            Built with security in mind. Frontend only — backend coming soon.
+            Built with security in mind. Powered by real-time header analysis.
           </p>
         </div>
       </div>

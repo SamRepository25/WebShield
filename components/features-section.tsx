@@ -43,9 +43,9 @@ const features = [
   },
   {
     icon: BarChart3,
-    title: 'Actionable Insights',
+    title: 'Exportable Reports',
     description:
-      'Clear recommendations with impact analysis to help you fix issues fast.',
+      'Download results as JSON or text reports, copy to clipboard, or share with your team.',
   },
 ];
 

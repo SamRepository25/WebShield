@@ -1,7 +1,16 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { SecurityHeader, HeaderStatus } from '@/lib/mock-data';
+import type { SecurityHeader, HeaderStatus } from '@/lib/types';
 
 interface SecurityHeadersTableProps {
   headers: SecurityHeader[];
@@ -51,8 +60,13 @@ const severityColors: Record<string, string> = {
 };
 
 export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
+  const [expanded, setExpanded] = useState<string | null>(null);
   const presentCount = headers.filter((h) => h.status === 'present').length;
   const totalCount = headers.length;
+
+  const toggle = (name: string) => {
+    setExpanded((prev) => (prev === name ? null : name));
+  };
 
   return (
     <Card className="glass">
@@ -73,74 +87,127 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="w-[30%] min-w-[180px]">Header</TableHead>
-                <TableHead className="w-[15%] min-w-[100px]">Status</TableHead>
+                <TableHead className="w-[12%] min-w-[90px]">Status</TableHead>
                 <TableHead className="w-[10%] min-w-[80px]">Severity</TableHead>
-                <TableHead className="min-w-[200px]">Value</TableHead>
+                <TableHead className="min-w-[180px]">Value</TableHead>
+                <TableHead className="w-[8%] min-w-[60px]">Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {headers.map((header, index) => {
                 const config = statusConfig[header.status];
                 const StatusIcon = config.icon;
+                const isExpanded = expanded === header.name;
                 return (
-                  <motion.tr
-                    key={header.name}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={`border-border transition-colors ${config.rowClass}`}
-                  >
-                    <TableCell className="font-mono text-xs font-medium text-foreground sm:text-sm">
-                      {header.name}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`gap-1 ${config.className}`}
-                      >
-                        <StatusIcon className="h-3 w-3" />
-                        {config.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-xs font-medium uppercase ${severityColors[header.severity]}`}
-                      >
-                        {header.severity}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-xs">
-                      <p
-                        className="truncate font-mono text-xs text-muted-foreground"
-                        title={header.value}
-                      >
-                        {header.value}
-                      </p>
-                    </TableCell>
-                  </motion.tr>
+                  <>
+                    <motion.tr
+                      key={header.name}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={`cursor-pointer border-border transition-colors ${config.rowClass} hover:bg-secondary/30`}
+                      onClick={() => toggle(header.name)}
+                    >
+                      <TableCell className="font-mono text-xs font-medium text-foreground sm:text-sm">
+                        {header.name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`gap-1 ${config.className}`}
+                        >
+                          <StatusIcon className="h-3 w-3" />
+                          {config.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`text-xs font-medium uppercase ${severityColors[header.severity]}`}
+                        >
+                          {header.severity}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <p
+                          className="truncate font-mono text-xs text-muted-foreground"
+                          title={header.value}
+                        >
+                          {header.value}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <button
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+                          aria-expanded={isExpanded}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </button>
+                      </TableCell>
+                    </motion.tr>
+                    <AnimatePresence key={`${header.name}-detail`}>
+                      {isExpanded && (
+                        <motion.tr
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="border-border"
+                        >
+                          <TableCell colSpan={5} className="bg-secondary/20 p-4">
+                            <div className="space-y-3">
+                              <div>
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Description
+                                </p>
+                                <p className="text-sm text-foreground">
+                                  {header.description}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Why It Matters
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {header.whyItMatters}
+                                </p>
+                              </div>
+                              {header.isWeak && header.weaknessReason && (
+                                <div className="rounded-lg bg-warning/10 p-3 ring-1 ring-warning/20">
+                                  <p className="flex items-start gap-2 text-sm text-warning">
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                    <span>{header.weaknessReason}</span>
+                                  </p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  <Lightbulb className="h-3.5 w-3.5" />
+                                  Example Secure Value
+                                </p>
+                                <code className="block rounded-md bg-background/60 p-2.5 font-mono text-xs text-primary">
+                                  {header.exampleValue}
+                                </code>
+                              </div>
+                            </div>
+                          </TableCell>
+                        </motion.tr>
+                      )}
+                    </AnimatePresence>
+                  </>
                 );
               })}
             </TableBody>
           </Table>
         </div>
 
-        <div className="mt-4 space-y-2">
-          {headers
-            .filter((h) => h.status !== 'present')
-            .slice(0, 3)
-            .map((header) => (
-              <div
-                key={header.name}
-                className="flex items-start gap-2 rounded-lg bg-secondary/30 p-3 text-xs"
-              >
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-                <div>
-                  <span className="font-medium text-foreground">{header.name}:</span>{' '}
-                  <span className="text-muted-foreground">{header.description}</span>
-                </div>
-              </div>
-            ))}
-        </div>
+        <p className="mt-4 text-xs text-muted-foreground">
+          Click any row to view detailed analysis, why the header matters, and an example secure value.
+        </p>
       </CardContent>
     </Card>
   );

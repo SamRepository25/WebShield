@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Menu, X, Github } from 'lucide-react';
+import { Shield, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const navLinks = [
   { label: 'Features', href: '#features' },
   { label: 'How It Works', href: '#how-it-works' },
   { label: 'Scan', href: '#scanner' },
-  { label: 'FAQ', href: '#faq' },
 ];
 
 export function Navbar() {
@@ -31,11 +30,14 @@ export function Navbar() {
         scrolled ? 'glass-strong shadow-lg' : 'bg-transparent'
       }`}
     >
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <a href="#" className="flex items-center gap-2.5">
+      <nav
+        className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8"
+        aria-label="Main navigation"
+      >
+        <a href="#" className="flex items-center gap-2.5" aria-label="WebShield home">
           <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/30">
-            <Shield className="h-5 w-5 text-primary" />
-            <div className="absolute inset-0 rounded-lg bg-primary/20 blur-md -z-10" />
+            <Shield className="h-5 w-5 text-primary" aria-hidden="true" />
+            <div className="absolute inset-0 rounded-lg bg-primary/20 blur-md -z-10" aria-hidden="true" />
           </div>
           <span className="text-lg font-bold tracking-tight">
             Web<span className="text-gradient">Shield</span>
@@ -55,10 +57,6 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-            <Github className="h-4 w-4" />
-            GitHub
-          </Button>
           <Button
             size="sm"
             className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
@@ -71,7 +69,8 @@ export function Navbar() {
         <button
           className="md:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileOpen}
         >
           {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>

@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, AlertTriangle, ShieldAlert, ShieldX } from 'lucide-react';
+import {
+  ShieldCheck,
+  AlertTriangle,
+  ShieldAlert,
+  ShieldX,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface SecurityScoreCardProps {
@@ -43,19 +48,24 @@ export function SecurityScoreCard({ score, grade }: SecurityScoreCardProps) {
   }, [score]);
 
   return (
-    <Card className="glass relative overflow-hidden border-primary/20">
+    <Card
+      className="glass relative overflow-hidden border-primary/20"
+      role="region"
+      aria-label={`Security score: ${score} out of 100, grade ${grade}, ${label}`}
+    >
       <div
         className="absolute inset-0 opacity-10"
         style={{ background: `radial-gradient(circle at 50% 50%, ${color}, transparent 70%)` }}
+        aria-hidden="true"
       />
       <CardHeader className="relative">
         <CardTitle className="flex items-center gap-2 text-base font-medium text-muted-foreground">
-          <Icon className="h-4 w-4" style={{ color }} />
+          <Icon className="h-4 w-4" style={{ color }} aria-hidden="true" />
           Security Score
         </CardTitle>
       </CardHeader>
       <CardContent className="relative flex flex-col items-center pb-8">
-        <div className="relative h-48 w-48">
+        <div className="relative h-48 w-48" aria-hidden="true">
           <svg className="h-full w-full -rotate-90" viewBox="0 0 200 200">
             <circle
               cx="100"
@@ -100,6 +110,7 @@ export function SecurityScoreCard({ score, grade }: SecurityScoreCardProps) {
           <div
             className="flex h-12 w-12 items-center justify-center rounded-xl text-xl font-bold"
             style={{ backgroundColor: `${color}20`, color, border: `1px solid ${color}40` }}
+            aria-hidden="true"
           >
             {grade}
           </div>

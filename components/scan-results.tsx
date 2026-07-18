@@ -1,15 +1,40 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Globe, Clock, RotateCcw, Download } from 'lucide-react';
+import {
+  Globe,
+  Clock,
+  RotateCcw,
+  Download,
+  Copy,
+  Share2,
+  FileJson,
+  FileText,
+  Check,
+  Timer,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { SecurityScoreCard } from '@/components/security-score-card';
 import { HttpsStatusCard } from '@/components/https-status-card';
 import { SecurityHeadersTable } from '@/components/security-headers-table';
 import { Recommendations } from '@/components/recommendations';
 import { RawHeadersAccordion } from '@/components/raw-headers-accordion';
 import { VulnerabilitySummary } from '@/components/vulnerability-summary';
-import type { ScanResult } from '@/lib/mock-data';
+import { useToast } from '@/hooks/use-toast';
+import {
+  exportJson,
+  exportTextReport,
+  copyResults,
+  shareResults,
+} from '@/lib/export';
+import type { ScanResult } from '@/lib/types';
 
 interface ScanResultsProps {
   result: ScanResult;
@@ -17,10 +42,48 @@ interface ScanResultsProps {
 }
 
 export function ScanResults({ result, onRescan }: ScanResultsProps) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
   const scanDate = new Date(result.scannedAt).toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+
+  const durationText =
+    result.scanDurationMs < 1000
+      ? `${result.scanDurationMs}ms`
+      : `${(result.scanDurationMs / 1000).toFixed(2)}s`;
+
+  const handleCopy = async () => {
+    try {
+      await copyResults(result);
+      setCopied(true);
+      toast({ title: 'Results copied', description: 'Scan summary copied to clipboard.' });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: 'Copy failed', description: 'Could not copy to clipboard.', variant: 'destructive' });
+    }
+  };
+
+  const handleShare = async () => {
+    const shared = await shareResults(result);
+    if (shared) {
+      toast({ title: 'Results shared', description: 'Scan results shared or copied to clipboard.' });
+    } else {
+      toast({ title: 'Share failed', description: 'Could not share results.', variant: 'destructive' });
+    }
+  };
+
+  const handleExportJson = () => {
+    exportJson(result);
+    toast({ title: 'JSON exported', description: 'Security report downloaded as JSON.' });
+  };
+
+  const handleExportReport = () => {
+    exportTextReport(result);
+    toast({ title: 'Report exported', description: 'Security report downloaded as text.' });
+  };
 
   return (
     <motion.div
@@ -37,28 +100,74 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
       >
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Globe className="h-4 w-4" />
-            <span className="font-mono">{result.url}</span>
+            <Globe className="h-4 w-4 shrink-0" />
+            <span className="truncate font-mono">{result.url}</span>
           </div>
           <h2 className="mt-1 text-2xl font-bold sm:text-3xl">Scan Results</h2>
-          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            Scanned on {scanDate}
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              {scanDate}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Timer className="h-3.5 w-3.5" />
+              Completed in {durationText}
+            </span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
             className="gap-2 border-border bg-secondary/30"
+            onClick={handleCopy}
+            aria-label="Copy results to clipboard"
           >
-            <Download className="h-4 w-4" />
-            Export
+            {copied ? (
+              <Check className="h-4 w-4 text-success" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            Copy
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-border bg-secondary/30"
+            onClick={handleShare}
+            aria-label="Share results"
+          >
+            <Share2 className="h-4 w-4" />
+            Share
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-border bg-secondary/30"
+                aria-label="Export results"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportJson} className="gap-2">
+                <FileJson className="h-4 w-4" />
+                Export as JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportReport} className="gap-2">
+                <FileText className="h-4 w-4" />
+                Download Report
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             size="sm"
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
             onClick={onRescan}
+            aria-label="Rescan website"
           >
             <RotateCcw className="h-4 w-4" />
             Rescan

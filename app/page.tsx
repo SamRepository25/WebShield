@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Navbar } from '@/components/navbar';
 import { Hero } from '@/components/hero';
@@ -23,34 +23,37 @@ export default function Home() {
 
   const scanMutation = useScan();
 
-  const handleScan = (url: string) => {
-    setScannedUrl(url);
-    setErrorMessage('');
-    setScanState('loading');
+  const handleScan = useCallback(
+    (url: string) => {
+      setScannedUrl(url);
+      setErrorMessage('');
+      setScanState('loading');
 
-    scanMutation.mutate(
-      { url },
-      {
-        onSuccess: (data) => {
-          setResult(data);
-          setScanState('results');
-        },
-        onError: (error: Error) => {
-          setErrorMessage(error.message || 'Failed to scan the website.');
-          setScanState('error');
-        },
-      }
-    );
-  };
+      scanMutation.mutate(
+        { url },
+        {
+          onSuccess: (data) => {
+            setResult(data);
+            setScanState('results');
+          },
+          onError: (error: Error) => {
+            setErrorMessage(error.message || 'Failed to scan the website.');
+            setScanState('error');
+          },
+        }
+      );
+    },
+    [scanMutation]
+  );
 
-  const handleRescan = () => {
+  const handleRescan = useCallback(() => {
     setScanState('idle');
     setResult(null);
     setScannedUrl('');
     setErrorMessage('');
     scanMutation.reset();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [scanMutation]);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">

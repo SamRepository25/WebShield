@@ -4,7 +4,7 @@ export const loadingSteps = [
   'Fetching HTTP response headers',
   'Validating SSL certificate',
   'Analyzing security headers',
-  'Checking CORS policies',
-  'Scanning for vulnerabilities',
+  'Checking HTTPS redirect',
+  'Detecting weak header values',
   'Calculating security score',
 ];

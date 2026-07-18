@@ -7,7 +7,11 @@ export interface SecurityHeader {
   value: string;
   status: HeaderStatus;
   description: string;
+  whyItMatters: string;
+  exampleValue: string;
   severity: Severity;
+  isWeak: boolean;
+  weaknessReason?: string;
 }
 
 export interface RawHeader {
@@ -17,6 +21,7 @@ export interface RawHeader {
 
 export interface HttpsInfo {
   enabled: boolean;
+  redirectFromHttp: boolean;
   valid: boolean;
   expiresAt: string;
   issuer: string;
@@ -28,8 +33,10 @@ export interface Recommendation {
   id: string;
   title: string;
   description: string;
-  severity: Severity;
+  whyItMatters: string;
   impact: string;
+  exampleImplementation: string;
+  severity: Severity;
 }
 
 export interface Vulnerabilities {
@@ -43,6 +50,7 @@ export interface Vulnerabilities {
 export interface ScanResult {
   url: string;
   scannedAt: string;
+  scanDurationMs: number;
   score: number;
   grade: string;
   https: HttpsInfo;

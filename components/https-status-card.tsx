@@ -1,11 +1,21 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Lock, Unlock, Calendar, Award, Server, KeyRound } from 'lucide-react';
+import {
+  Lock,
+  Unlock,
+  Calendar,
+  Award,
+  Server,
+  KeyRound,
+  ArrowRightLeft,
+  ShieldCheck,
+  ShieldAlert,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import type { ScanResult } from '@/lib/mock-data';
+import type { ScanResult } from '@/lib/types';
 
 interface HttpsStatusCardProps {
   https: ScanResult['https'];
@@ -13,7 +23,8 @@ interface HttpsStatusCardProps {
 
 export function HttpsStatusCard({ https }: HttpsStatusCardProps) {
   const isSecure = https.enabled && https.valid;
-  const expiryWarning = https.daysRemaining < 30;
+  const expiryWarning = https.daysRemaining > 0 && https.daysRemaining < 30;
+  const hasCertInfo = Boolean(https.issuer || https.protocol || https.expiresAt);
 
   return (
     <Card className="glass relative overflow-hidden">
@@ -56,78 +67,122 @@ export function HttpsStatusCard({ https }: HttpsStatusCardProps) {
           }`}
         >
           <div
-            className={`flex h-14 w-14 items-center justify-center rounded-full ${
+            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${
               isSecure ? 'bg-success/20' : 'bg-destructive/20'
             }`}
           >
             {isSecure ? (
-              <Lock className="h-7 w-7 text-success" />
+              <ShieldCheck className="h-7 w-7 text-success" />
             ) : (
-              <Unlock className="h-7 w-7 text-destructive" />
+              <ShieldAlert className="h-7 w-7 text-destructive" />
             )}
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-lg font-semibold">
               {https.enabled ? 'HTTPS Enabled' : 'HTTPS Not Enabled'}
             </p>
             <p className="text-sm text-muted-foreground">
-              {https.valid ? 'Valid SSL/TLS certificate' : 'Invalid or missing certificate'}
+              {https.valid
+                ? 'Valid SSL/TLS certificate'
+                : 'Invalid or missing certificate'}
             </p>
           </div>
         </motion.div>
 
-        <Separator />
-
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <InfoRow
+            icon={ArrowRightLeft}
+            label="HTTP → HTTPS Redirect"
+            value={
+              https.enabled
+                ? https.redirectFromHttp
+                  ? 'Active'
+                  : 'Not Redirecting'
+                : 'N/A'
+            }
+            variant={
+              !https.enabled
+                ? 'neutral'
+                : https.redirectFromHttp
+                ? 'success'
+                : 'warning'
+            }
+          />
           <InfoRow
             icon={KeyRound}
             label="Protocol"
-            value={https.protocol}
+            value={https.protocol || 'Not available'}
           />
           <InfoRow
             icon={Award}
-            label="Issuer"
-            value={https.issuer}
+            label="Certificate Issuer"
+            value={https.issuer || 'Not available'}
           />
           <InfoRow
             icon={Calendar}
-            label="Expires"
-            value={https.expiresAt}
+            label="Certificate Expires"
+            value={https.expiresAt || 'Not available'}
             warning={expiryWarning}
           />
           <InfoRow
             icon={Server}
             label="Days Remaining"
-            value={`${https.daysRemaining} days`}
+            value={
+              https.daysRemaining > 0
+                ? `${https.daysRemaining} days`
+                : 'Not available'
+            }
             warning={expiryWarning}
           />
         </div>
+
+        {!hasCertInfo && https.enabled && (
+          <p className="text-xs text-muted-foreground">
+            Detailed certificate information is not available for this connection.
+            HTTPS is active and the connection is encrypted.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-  warning,
-}: {
+interface InfoRowProps {
   icon: React.ElementType;
   label: string;
   value: string;
   warning?: boolean;
-}) {
+  variant?: 'success' | 'warning' | 'destructive' | 'neutral';
+}
+
+function InfoRow({ icon: Icon, label, value, warning, variant }: InfoRowProps) {
+  const colorClass =
+    warning
+      ? 'text-warning'
+      : variant === 'success'
+      ? 'text-success'
+      : variant === 'warning'
+      ? 'text-warning'
+      : variant === 'destructive'
+      ? 'text-destructive'
+      : 'text-primary';
+
   return (
     <div className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3">
-      <Icon
-        className={`h-4 w-4 shrink-0 ${warning ? 'text-warning' : 'text-primary'}`}
-      />
+      <Icon className={`h-4 w-4 shrink-0 ${colorClass}`} />
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
         <p
           className={`truncate text-sm font-medium ${
-            warning ? 'text-warning' : 'text-foreground'
+            warning
+              ? 'text-warning'
+              : variant === 'success'
+              ? 'text-success'
+              : variant === 'warning'
+              ? 'text-warning'
+              : variant === 'destructive'
+              ? 'text-destructive'
+              : 'text-foreground'
           }`}
         >
           {value}
