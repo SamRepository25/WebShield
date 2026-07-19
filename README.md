@@ -102,7 +102,7 @@ npm start
 
 ## 📸 Screenshots
 
-Add screenshots inside:
+Added screenshots inside:
 
 ```
 docs/
