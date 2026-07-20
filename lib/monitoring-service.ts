@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import { runScan, ScanError, gradeFromScore } from '@/lib/scanner';
 import type { ScanResult } from '@/lib/types';
 import type {
@@ -11,6 +10,19 @@ import type {
   ScanDiff,
 } from '@/lib/monitoring-types';
 import { FREQUENCY_MS } from '@/lib/monitoring-types';
+import {
+  getSites,
+  getSite,
+  insertSite,
+  updateSiteFields,
+  deleteSite as deleteSiteStore,
+  insertScan,
+  getScansForSite,
+  getAllScans,
+  getScanCount,
+  getRecentScans,
+  getDueSites as getDueSitesStore,
+} from '@/lib/monitoring-store';
 
 function normalizeUrl(raw: string): string {
   let url = raw.trim();
@@ -32,12 +44,7 @@ function computeNextScanAt(frequency: ScanFrequency, from: Date = new Date()): s
 }
 
 export async function listSites(): Promise<MonitoredSite[]> {
-  const { data, error } = await supabase
-    .from('monitored_sites')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(`Failed to load sites: ${error.message}`);
-  return (data ?? []) as MonitoredSite[];
+  return getSites();
 }
 
 export async function createSite(input: MonitoredSiteInput): Promise<MonitoredSite> {
@@ -47,73 +54,52 @@ export async function createSite(input: MonitoredSiteInput): Promise<MonitoredSi
   const frequency = input.frequency ?? 'daily';
   const monitoringEnabled = input.monitoring_enabled ?? true;
 
-  const insert = {
+  return insertSite({
     name,
     url,
     frequency,
     monitoring_enabled: monitoringEnabled,
     next_scan_at: monitoringEnabled ? computeNextScanAt(frequency) : null,
-  };
-
-  const { data, error } = await supabase
-    .from('monitored_sites')
-    .insert(insert)
-    .select()
-    .single();
-  if (error) throw new Error(`Failed to create site: ${error.message}`);
-  return data as MonitoredSite;
+  });
 }
 
 export async function updateSite(
   id: string,
   input: Partial<MonitoredSiteInput>
 ): Promise<MonitoredSite> {
-  const update: Record<string, unknown> = {};
+  const existing = await getSite(id);
+  if (!existing) throw new Error('Site not found.');
+
+  const fields: Partial<MonitoredSite> = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
     if (!name) throw new Error('Site name cannot be empty.');
-    update.name = name;
+    fields.name = name;
   }
-  if (input.url !== undefined) update.url = normalizeUrl(input.url);
+  if (input.url !== undefined) fields.url = normalizeUrl(input.url);
   if (input.frequency !== undefined) {
-    update.frequency = input.frequency;
-    const { data: current } = await supabase
-      .from('monitored_sites')
-      .select('monitoring_enabled')
-      .eq('id', id)
-      .maybeSingle();
-    if (current?.monitoring_enabled) {
-      update.next_scan_at = computeNextScanAt(input.frequency);
+    fields.frequency = input.frequency;
+    if (existing.monitoring_enabled) {
+      fields.next_scan_at = computeNextScanAt(input.frequency);
     }
   }
   if (input.monitoring_enabled !== undefined) {
-    update.monitoring_enabled = input.monitoring_enabled;
+    fields.monitoring_enabled = input.monitoring_enabled;
     if (input.monitoring_enabled) {
-      const { data: cur } = await supabase
-        .from('monitored_sites')
-        .select('frequency')
-        .eq('id', id)
-        .maybeSingle();
-      const freq = (cur?.frequency as ScanFrequency) ?? 'daily';
-      update.next_scan_at = computeNextScanAt(freq);
+      const freq = input.frequency ?? existing.frequency;
+      fields.next_scan_at = computeNextScanAt(freq);
     } else {
-      update.next_scan_at = null;
+      fields.next_scan_at = null;
     }
   }
 
-  const { data, error } = await supabase
-    .from('monitored_sites')
-    .update(update)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(`Failed to update site: ${error.message}`);
-  return data as MonitoredSite;
+  const updated = await updateSiteFields(id, fields);
+  if (!updated) throw new Error('Site not found.');
+  return updated;
 }
 
 export async function deleteSite(id: string): Promise<void> {
-  const { error } = await supabase.from('monitored_sites').delete().eq('id', id);
-  if (error) throw new Error(`Failed to delete site: ${error.message}`);
+  await deleteSiteStore(id);
 }
 
 function summarizeResult(result: ScanResult) {
@@ -143,55 +129,33 @@ export async function executeScan(
   siteId: string,
   trigger: ScanTrigger = 'manual'
 ): Promise<{ scan: ScanRecord; result: ScanResult; diff: ScanDiff | null }> {
-  const { data: site, error: siteErr } = await supabase
-    .from('monitored_sites')
-    .select('*')
-    .eq('id', siteId)
-    .maybeSingle();
-  if (siteErr) throw new Error(`Failed to load site: ${siteErr.message}`);
+  const site = await getSite(siteId);
   if (!site) throw new Error('Site not found.');
+
+  const previousScans = await getScansForSite(siteId, 1);
+  const prevScan = previousScans[0];
 
   const result = await runScan(site.url);
   const summary = summarizeResult(result);
 
-  const { data: prevScan, error: prevErr } = await supabase
-    .from('scans')
-    .select('result_json')
-    .eq('site_id', siteId)
-    .order('scanned_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (prevErr) throw new Error(`Failed to load previous scan: ${prevErr.message}`);
-
-  const { data: scanRow, error: insertErr } = await supabase
-    .from('scans')
-    .insert({
-      site_id: siteId,
-      url: site.url,
-      ...summary,
-      trigger,
-    })
-    .select()
-    .single();
-  if (insertErr) throw new Error(`Failed to store scan: ${insertErr.message}`);
+  const scan = await insertScan({
+    site_id: siteId,
+    url: site.url,
+    ...summary,
+    trigger,
+  });
 
   const nextScanAt = trigger === 'scheduled' ? computeNextScanAt(site.frequency) : null;
-  const { error: updateErr } = await supabase
-    .from('monitored_sites')
-    .update({
-      last_scan_at: new Date().toISOString(),
-      last_score: result.score,
-      last_grade: result.grade,
-      next_scan_at: nextScanAt,
-    })
-    .eq('id', siteId);
-  if (updateErr) throw new Error(`Failed to update site: ${updateErr.message}`);
+  await updateSiteFields(siteId, {
+    last_scan_at: scan.scanned_at,
+    last_score: result.score,
+    last_grade: result.grade,
+    next_scan_at: nextScanAt,
+  });
 
-  const diff = prevScan?.result_json
-    ? computeDiff(prevScan.result_json as ScanResult, result)
-    : null;
+  const diff = prevScan ? computeDiff(prevScan.result_json, result) : null;
 
-  return { scan: scanRow as ScanRecord, result, diff };
+  return { scan, result, diff };
 }
 
 export function computeDiff(prev: ScanResult, curr: ScanResult): ScanDiff {
@@ -219,37 +183,21 @@ export async function listScans(opts?: {
   limit?: number;
   offset?: number;
 }): Promise<ScanRecord[]> {
-  let query = supabase.from('scans').select('*');
-  if (opts?.siteId) query = query.eq('site_id', opts.siteId);
-  query = query.order('scanned_at', { ascending: false });
-  if (opts?.limit) query = query.limit(opts.limit);
-  if (opts?.offset) query = query.range(opts.offset, opts.offset + (opts.limit ?? 50) - 1);
-  const { data, error } = await query;
-  if (error) throw new Error(`Failed to load scans: ${error.message}`);
-  return (data ?? []) as ScanRecord[];
+  if (opts?.siteId) {
+    return getScansForSite(opts.siteId, opts.limit);
+  }
+  return getAllScans(opts?.limit, opts?.offset);
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const [sitesRes, scansRes, recentRes] = await Promise.all([
-    supabase.from('monitored_sites').select('id, monitoring_enabled, last_score, last_grade, last_scan_at'),
-    supabase.from('scans').select('id', { count: 'exact', head: true }),
-    supabase
-      .from('scans')
-      .select('scanned_at, score, grade, url')
-      .order('scanned_at', { ascending: false })
-      .limit(30),
-  ]);
+  const sites = await getSites();
+  const totalScans = await getScanCount();
+  const recent = await getRecentScans(30);
 
-  if (sitesRes.error) throw new Error(`Failed to load sites: ${sitesRes.error.message}`);
-  if (scansRes.error) throw new Error(`Failed to load scan count: ${scansRes.error.message}`);
-  if (recentRes.error) throw new Error(`Failed to load recent scans: ${recentRes.error.message}`);
-
-  const sites = sitesRes.data ?? [];
   const totalSites = sites.length;
   const activeSites = sites.filter((s) => s.monitoring_enabled).length;
-  const totalScans = scansRes.count ?? 0;
 
-  const sortedByScan = [...sites].sort(
+  const sortedByScan = sites.slice().sort(
     (a, b) => new Date(b.last_scan_at ?? 0).getTime() - new Date(a.last_scan_at ?? 0).getTime()
   );
   const latest = sortedByScan[0];
@@ -259,14 +207,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   let previousScore: number | null = null;
   if (latest) {
-    const { data: prevScan } = await supabase
-      .from('scans')
-      .select('score')
-      .eq('site_id', latest.id)
-      .order('scanned_at', { ascending: false })
-      .range(1, 1)
-      .maybeSingle();
-    previousScore = prevScan?.score ?? null;
+    const prevScans = await getScansForSite(latest.id, 2);
+    if (prevScans.length >= 2) previousScore = prevScans[1].score;
   }
 
   let scoreTrend: DashboardStats['scoreTrend'] = 'unknown';
@@ -292,7 +234,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     scoreTrend,
     httpsEnabled,
     averageScore,
-    scoreHistory: (recentRes.data ?? []).map((s) => ({
+    scoreHistory: recent.map((s) => ({
       scanned_at: s.scanned_at,
       score: s.score,
       grade: s.grade,
@@ -302,15 +244,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 export async function getDueSites(): Promise<MonitoredSite[]> {
-  const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
-    .from('monitored_sites')
-    .select('*')
-    .eq('monitoring_enabled', true)
-    .or(`next_scan_at.is.null,next_scan_at.lte.${nowIso}`)
-    .order('next_scan_at', { ascending: true, nullsFirst: true });
-  if (error) throw new Error(`Failed to load due sites: ${error.message}`);
-  return (data ?? []) as MonitoredSite[];
+  return getDueSitesStore();
 }
 
 export { gradeFromScore };
