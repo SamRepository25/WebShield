@@ -1,4 +1,11 @@
 import { runScan, ScanError, gradeFromScore } from '@/lib/scanner';
+import {
+  sendWebsiteDownAlert,
+  sendWebsiteRecoveredAlert,
+  sendScoreDropAlert,
+  sendSSLAlert,
+  sendHeaderAlert,
+} from "@/lib/telegram";
 import type { ScanResult } from '@/lib/types';
 import type {
   MonitoredSite,
@@ -135,8 +142,14 @@ export async function executeScan(
   const previousScans = await getScansForSite(siteId, 1);
   const prevScan = previousScans[0];
 
-  const result = await runScan(site.url);
-  const summary = summarizeResult(result);
+let result: ScanResult;
+
+try {
+  result = await runScan(site.url);
+} catch (error) {
+  await sendWebsiteDownAlert(site.url);
+  throw error;
+}  const summary = summarizeResult(result);
 
   const scan = await insertScan({
     site_id: siteId,
@@ -153,9 +166,49 @@ export async function executeScan(
     next_scan_at: nextScanAt,
   });
 
-  const diff = prevScan ? computeDiff(prevScan.result_json, result) : null;
+ const diff = prevScan ? computeDiff(prevScan.result_json, result) : null;
 
-  return { scan, result, diff };
+// Score Drop Alert
+if (
+  diff &&
+  diff.scoreDelta <= -10
+) {
+  await sendScoreDropAlert(
+    site.url,
+    prevScan!.score,
+    result.score
+  );
+}
+
+// SSL Alert
+if (!result.https.valid) {
+  await sendSSLAlert(site.url);
+}
+// Missing Security Header Alert
+if (
+  diff &&
+  diff.missingHeaders.length > 0
+) {
+  for (const header of diff.missingHeaders) {
+    await sendHeaderAlert(
+      site.url,
+      header
+    );
+  }
+}
+// Website Recovery Alert
+if (
+  prevScan &&
+  prevScan.score === 0 &&
+  result.score > 0
+) {
+  await sendWebsiteRecoveredAlert(
+    site.url,
+    result.score
+  );
+}
+
+return { scan, result, diff };
 }
 
 export function computeDiff(prev: ScanResult, curr: ScanResult): ScanDiff {
