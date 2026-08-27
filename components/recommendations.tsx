@@ -48,7 +48,16 @@ const severityConfig: Record<
   },
 };
 
+const tierBadge: Record<Recommendation['tier'], { label: string; className: string }> = {
+  essential: { label: 'Essential', className: 'border-destructive/30 bg-destructive/10 text-destructive' },
+  recommended: { label: 'Recommended', className: 'border-warning/30 bg-warning/10 text-warning' },
+  optional: { label: 'Optional hardening', className: 'border-muted-foreground/30 bg-muted/10 text-muted-foreground' },
+};
+
 export function Recommendations({ recommendations }: RecommendationsProps) {
+  const essentialCount = recommendations.filter((r) => r.tier === 'essential').length;
+  const optionalCount = recommendations.filter((r) => r.tier === 'optional').length;
+
   if (recommendations.length === 0) {
     return (
       <Card className="glass">
@@ -86,6 +95,9 @@ export function Recommendations({ recommendations }: RecommendationsProps) {
           </span>
           <Badge variant="outline" className="border-warning/30 bg-warning/10 text-warning">
             {recommendations.length} {recommendations.length === 1 ? 'Action' : 'Actions'}
+            {optionalCount > 0 && essentialCount !== recommendations.length
+              ? ` (${essentialCount} essential)`
+              : ''}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -150,9 +162,14 @@ export function Recommendations({ recommendations }: RecommendationsProps) {
                     </div>
                   )}
                 </div>
-                <Badge variant="outline" className={`shrink-0 ${config.className}`}>
-                  {config.label}
-                </Badge>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <Badge variant="outline" className={config.className}>
+                    {config.label}
+                  </Badge>
+                  <Badge variant="outline" className={`text-[10px] ${tierBadge[rec.tier].className}`}>
+                    {tierBadge[rec.tier].label}
+                  </Badge>
+                </div>
               </div>
             </motion.div>
           );

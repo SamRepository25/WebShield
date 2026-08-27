@@ -14,7 +14,7 @@ export const mockScanResult: ScanResult = {
     cookies: 5,
     infrastructure: 2,
     total: 72,
-    maxTotal: 137,
+    maxTotal: 100,
   },
   https: {
     enabled: true,
@@ -33,7 +33,7 @@ export const mockScanResult: ScanResult = {
     compression: 'gzip',
     finalStatusCode: 200,
     redirectCount: 0,
-    redirectChain: [{ url: 'https://example.com', status: 200, https: true }],
+    redirectChain: [{ url: 'https://example.com', status: 200, https: true, redirectType: 'initial' }],
     mixedContent: false,
   },
   cookies: [
@@ -42,7 +42,9 @@ export const mockScanResult: ScanResult = {
       secure: true,
       httpOnly: true,
       sameSite: 'Lax',
+      looksSensitive: true,
       weaknesses: [],
+      informational: [],
     },
   ],
   headers: [],

@@ -10,6 +10,15 @@ interface ServerInfoCardProps {
   server: ScanResult['server'];
 }
 
+const redirectTypeLabels: Record<string, string> = {
+  initial: 'Start',
+  'protocol-upgrade': 'HTTP → HTTPS',
+  'domain-change': 'Domain change',
+  'www-change': 'www change',
+  'path-change': 'Path change',
+  other: 'Redirect',
+};
+
 export function ServerInfoCard({ server }: ServerInfoCardProps) {
   const hidesServerInfo = !server.server && !server.xPoweredBy && !server.poweredBy;
   const hasCompression = server.compression && server.compression !== 'none';
@@ -84,6 +93,11 @@ export function ServerInfoCard({ server }: ServerInfoCardProps) {
                   <span className="truncate font-mono text-muted-foreground" title={step.url}>
                     {step.url}
                   </span>
+                  {step.redirectType !== 'initial' && (
+                    <span className="ml-auto shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {redirectTypeLabels[step.redirectType] ?? step.redirectType}
+                    </span>
+                  )}
                 </motion.div>
               ))}
             </div>

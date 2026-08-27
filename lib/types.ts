@@ -2,6 +2,14 @@ export type HeaderStatus = 'present' | 'missing' | 'weak' | 'report-only';
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
+// How important a header realistically is. 'essential' headers materially
+// reduce real-world attack surface for most sites. 'recommended' headers
+// add meaningful hardening but aren't universally required. 'optional'
+// headers (advanced browser-isolation headers like COEP/COOP/CORP, legacy
+// headers, monitoring-only headers) are context-dependent hardening and
+// should never by themselves drag a site down to a poor grade.
+export type HeaderTier = 'essential' | 'recommended' | 'optional';
+
 export interface SecurityHeader {
   name: string;
   value: string;
@@ -10,6 +18,7 @@ export interface SecurityHeader {
   whyItMatters: string;
   exampleValue: string;
   severity: Severity;
+  tier: HeaderTier;
   isWeak: boolean;
   weaknessReason?: string;
   pointsAwarded: number;
@@ -27,13 +36,30 @@ export interface CookieInfo {
   secure: boolean;
   httpOnly: boolean;
   sameSite: string;
+  // Heuristic: does the cookie's name look like it carries session/auth
+  // state? Drives whether a missing HttpOnly flag is treated as a real
+  // weakness or just an informational note.
+  looksSensitive: boolean;
+  // Real, actionable security weaknesses (drive score and recommendations).
   weaknesses: string[];
+  // Context notes that are not, by themselves, security weaknesses (e.g. a
+  // cookie intentionally readable by JavaScript).
+  informational: string[];
 }
+
+export type RedirectType =
+  | 'initial'
+  | 'protocol-upgrade'
+  | 'domain-change'
+  | 'www-change'
+  | 'path-change'
+  | 'other';
 
 export interface RedirectStep {
   url: string;
   status: number;
   https: boolean;
+  redirectType: RedirectType;
 }
 
 export interface HttpsInfo {
@@ -66,6 +92,7 @@ export interface Recommendation {
   impact: string;
   exampleImplementation: string;
   severity: Severity;
+  tier: HeaderTier;
   references?: string[];
 }
 

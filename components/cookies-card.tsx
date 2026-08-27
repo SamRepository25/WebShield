@@ -30,8 +30,13 @@ export function CookiesCard({ cookies }: CookiesCardProps) {
   }
 
   const allSecure = cookies.every((c) => c.secure);
-  const allHttpOnly = cookies.every((c) => c.httpOnly);
-  const allSameSite = cookies.every((c) => c.sameSite !== 'None');
+  // Only judge the "HttpOnly" badge against cookies that actually need it —
+  // sensitive/session-looking cookies. A site full of non-sensitive,
+  // intentionally JS-readable cookies shouldn't trip a warning badge.
+  const sensitiveCookies = cookies.filter((c) => c.looksSensitive);
+  const httpOnlyRelevant = sensitiveCookies.length > 0 ? sensitiveCookies : [];
+  const allHttpOnly = httpOnlyRelevant.length === 0 || httpOnlyRelevant.every((c) => c.httpOnly);
+  const allSameSite = cookies.every((c) => c.sameSite !== 'None' || c.secure);
 
   return (
     <Card className="glass">
@@ -59,11 +64,12 @@ export function CookiesCard({ cookies }: CookiesCardProps) {
           )}
           {allHttpOnly ? (
             <Badge variant="outline" className="gap-1.5 border-success/30 bg-success/10 text-success">
-              <ShieldCheck className="h-3 w-3" aria-hidden="true" /> All HttpOnly
+              <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+              {httpOnlyRelevant.length > 0 ? 'Session Cookies HttpOnly' : 'No Sensitive Cookies'}
             </Badge>
           ) : (
             <Badge variant="outline" className="gap-1.5 border-warning/30 bg-warning/10 text-warning">
-              <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Missing HttpOnly
+              <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Session Cookie Missing HttpOnly
             </Badge>
           )}
           {allSameSite ? (
@@ -98,13 +104,18 @@ export function CookiesCard({ cookies }: CookiesCardProps) {
                   )}
                   {cookie.httpOnly ? (
                     <ShieldCheck className="h-3.5 w-3.5 text-success" aria-label="HttpOnly" />
-                  ) : (
+                  ) : cookie.looksSensitive ? (
                     <ShieldOff className="h-3.5 w-3.5 text-destructive" aria-label="Not HttpOnly" />
+                  ) : (
+                    <ShieldOff className="h-3.5 w-3.5 text-muted-foreground" aria-label="Not HttpOnly (likely intentional)" />
                   )}
                 </div>
               </div>
               {cookie.weaknesses.length > 0 && (
                 <p className="text-xs text-warning">{cookie.weaknesses.join(' · ')}</p>
+              )}
+              {cookie.informational.length > 0 && (
+                <p className="text-xs text-muted-foreground">{cookie.informational.join(' · ')}</p>
               )}
               <p className="mt-1 text-xs text-muted-foreground">SameSite: {cookie.sameSite}</p>
             </motion.div>

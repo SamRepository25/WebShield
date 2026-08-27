@@ -5,11 +5,13 @@ import type {
   ServerInfo,
   CookieInfo,
   RedirectStep,
+  RedirectType,
   Recommendation,
   Vulnerabilities,
   Severity,
   ScoreBreakdown,
   HeaderStatus,
+  HeaderTier,
 } from '@/lib/types';
 
 export const REQUEST_TIMEOUT = 12000;
@@ -24,6 +26,13 @@ interface HeaderSpec {
   category: Category;
   maxPoints: number;
   severity: Severity;
+  // essential = materially reduces real-world attack surface for most sites.
+  // recommended = meaningful hardening, but not universally required.
+  // optional = advanced/context-dependent hardening (browser isolation
+  // headers, legacy headers, monitoring-only headers). Missing an optional
+  // header is never treated as a vulnerability and never drags a site down
+  // to a poor grade by itself.
+  tier: HeaderTier;
   description: string;
   whyItMatters: string;
   exampleValue: string;
@@ -39,6 +48,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'transport',
     maxPoints: 20,
     severity: 'high',
+    tier: 'essential',
     description:
       'Tells browsers to only connect via HTTPS for the specified duration, preventing protocol downgrade and SSL stripping attacks.',
     whyItMatters:
@@ -64,6 +74,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'content',
     maxPoints: 25,
     severity: 'high',
+    tier: 'essential',
     description:
       'Controls which sources the browser may load resources from, mitigating Cross-Site Scripting (XSS) and data injection.',
     whyItMatters:
@@ -109,6 +120,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'content',
     maxPoints: 10,
     severity: 'info',
+    tier: 'optional',
     description:
       'A monitoring-only variant of CSP that reports violations without enforcing them. Useful for rolling out CSP safely.',
     whyItMatters:
@@ -122,6 +134,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'browser',
     maxPoints: 5,
     severity: 'medium',
+    tier: 'essential',
     description:
       'Prevents clickjacking by restricting whether the page can be embedded in frames. Largely superseded by CSP frame-ancestors.',
     whyItMatters:
@@ -143,6 +156,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'browser',
     maxPoints: 5,
     severity: 'medium',
+    tier: 'essential',
     description:
       'Disables MIME type sniffing, forcing browsers to respect the declared Content-Type of responses.',
     whyItMatters:
@@ -161,6 +175,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'browser',
     maxPoints: 5,
     severity: 'low',
+    tier: 'recommended',
     description:
       'Controls how much referrer information is included with outgoing requests, protecting user privacy.',
     whyItMatters:
@@ -182,6 +197,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'browser',
     maxPoints: 10,
     severity: 'medium',
+    tier: 'recommended',
     description:
       'Controls which browser features and APIs (camera, microphone, geolocation, etc.) the page and embedded frames can access.',
     whyItMatters:
@@ -193,7 +209,8 @@ export const HEADER_SPECS: HeaderSpec[] = [
     prettyName: 'Cross-Origin-Embedder-Policy',
     category: 'browser',
     maxPoints: 5,
-    severity: 'low',
+    severity: 'info',
+    tier: 'optional',
     description:
       'Requires cross-origin resources to opt-in via CORS, enabling a secure context for powerful APIs like SharedArrayBuffer.',
     whyItMatters:
@@ -214,7 +231,8 @@ export const HEADER_SPECS: HeaderSpec[] = [
     prettyName: 'Cross-Origin-Opener-Policy',
     category: 'browser',
     maxPoints: 5,
-    severity: 'low',
+    severity: 'info',
+    tier: 'optional',
     description:
       'Isolates the browsing context from cross-origin documents, preventing them from accessing your window object.',
     whyItMatters:
@@ -237,7 +255,8 @@ export const HEADER_SPECS: HeaderSpec[] = [
     prettyName: 'Cross-Origin-Resource-Policy',
     category: 'browser',
     maxPoints: 3,
-    severity: 'low',
+    severity: 'info',
+    tier: 'optional',
     description:
       'Restricts who can embed a resource, providing a defense-in-depth against cross-origin information leakage.',
     whyItMatters:
@@ -260,6 +279,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'browser',
     maxPoints: 2,
     severity: 'info',
+    tier: 'optional',
     description:
       'Requests the browser to segregate the origin into its own agent cluster, improving isolation.',
     whyItMatters:
@@ -273,6 +293,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'browser',
     maxPoints: 0,
     severity: 'info',
+    tier: 'optional',
     description:
       'Legacy Internet Explorer XSS filter header. Deprecated and removed from modern browsers. CSP is the modern replacement.',
     whyItMatters:
@@ -287,6 +308,7 @@ export const HEADER_SPECS: HeaderSpec[] = [
     category: 'browser',
     maxPoints: 2,
     severity: 'info',
+    tier: 'optional',
     description:
       'Instructs the browser to clear site data (cookies, storage, cache) — useful for logout flows.',
     whyItMatters:
@@ -311,23 +333,66 @@ export function normalizeUrl(raw: string): string {
   return url;
 }
 
+// Cookie names that suggest the cookie carries session/auth/credential
+// state. For these, a missing HttpOnly flag is a real weakness — the
+// cookie could be stolen by an XSS payload. For everything else (feature
+// flags, non-sensitive preferences, analytics/consent identifiers), sites
+// often make cookies intentionally readable by JavaScript, so a missing
+// HttpOnly flag is informational rather than a vulnerability.
+const SENSITIVE_COOKIE_PATTERN =
+  /(session|sess|auth|token|jwt|login|credential|csrf|xsrf|^sid$|_sid$|account|user_id|uid)/i;
+
 function parseSetCookie(header: string): CookieInfo | null {
   if (!header) return null;
   const parts = header.split(';').map((p) => p.trim());
   const namePart = parts[0] || '';
   const name = namePart.split('=')[0] || '';
+  const nameLower = name.toLowerCase();
   const lower = header.toLowerCase();
   const secure = lower.includes('secure');
   const httpOnly = lower.includes('httponly');
   let sameSite = 'None';
   const ssMatch = lower.match(/samesite=(lax|strict|none)/);
   if (ssMatch) sameSite = ssMatch[1].charAt(0).toUpperCase() + ssMatch[1].slice(1);
+
+  // The __Secure- and __Host- name prefixes are a browser-enforced
+  // guarantee: browsers refuse to set these cookies at all unless the
+  // Secure attribute is present (and for __Host-, unless Path=/ and no
+  // Domain attribute). A site using these prefixes is already opting in to
+  // stronger cookie handling, and the prefix itself is not evidence the
+  // cookie needs HttpOnly too.
+  const hasSecurePrefix = nameLower.startsWith('__secure-') || nameLower.startsWith('_secure-');
+  const hasHostPrefix = nameLower.startsWith('__host-');
+  const looksSensitive = SENSITIVE_COOKIE_PATTERN.test(nameLower);
+
   const weaknesses: string[] = [];
-  if (!secure) weaknesses.push('Missing Secure flag');
-  if (!httpOnly) weaknesses.push('Missing HttpOnly flag');
-  if (!ssMatch) weaknesses.push('Missing SameSite attribute');
-  else if (sameSite === 'None') weaknesses.push('SameSite=None weakens CSRF protection');
-  return { name, secure, httpOnly, sameSite, weaknesses };
+  const informational: string[] = [];
+
+  if (!secure) {
+    weaknesses.push(
+      hasSecurePrefix || hasHostPrefix
+        ? 'Missing Secure flag (required by its __Secure-/__Host- name prefix — browsers should reject this cookie)'
+        : 'Missing Secure flag — the cookie can be sent over plain HTTP'
+    );
+  }
+
+  if (!httpOnly) {
+    if (looksSensitive) {
+      weaknesses.push('Missing HttpOnly flag on a cookie that looks like it holds session/auth data');
+    } else {
+      informational.push('No HttpOnly flag — this cookie is readable by JavaScript, which may be intentional for a non-sensitive cookie');
+    }
+  }
+
+  if (!ssMatch) {
+    informational.push('No SameSite attribute set (browsers default to Lax, but setting it explicitly is best practice)');
+  } else if (sameSite === 'None' && !secure) {
+    weaknesses.push('SameSite=None without Secure — modern browsers will reject this cookie');
+  } else if (sameSite === 'None') {
+    informational.push('SameSite=None allows cross-site sending; this is safe here because Secure is also set');
+  }
+
+  return { name, secure, httpOnly, sameSite, looksSensitive, weaknesses, informational };
 }
 
 function extractCookies(headers: Headers): CookieInfo[] {
@@ -341,19 +406,66 @@ function extractCookies(headers: Headers): CookieInfo[] {
   return cookies;
 }
 
-async function checkHttpRedirect(hostname: string): Promise<boolean> {
+// Classifies how one URL in a redirect chain differs from the previous one,
+// so the UI can distinguish a protocol upgrade (http -> https) from a plain
+// domain change (e.g. apex -> www) or a path/query change. A single hop can
+// combine several changes at once (e.g. http://example.com ->
+// https://www.example.com/) — in that case protocol upgrade takes priority
+// since it's the most security-relevant distinction.
+function classifyRedirect(fromUrl: string, toUrl: string): RedirectType {
+  let from: URL;
+  let to: URL;
   try {
-    const res = await fetch(`http://${hostname}`, {
-      method: 'GET',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(8000),
-      headers: { 'User-Agent': USER_AGENT },
-    });
-    if (res.status >= 300 && res.status < 400) {
+    from = new URL(fromUrl);
+    to = new URL(toUrl);
+  } catch {
+    return 'other';
+  }
+  const stripWww = (h: string) => h.replace(/^www\./i, '');
+  const fromHost = stripWww(from.hostname.toLowerCase());
+  const toHost = stripWww(to.hostname.toLowerCase());
+
+  if (from.protocol === 'http:' && to.protocol === 'https:' ) {
+    return 'protocol-upgrade';
+  }
+  if (fromHost !== toHost) {
+    return 'domain-change';
+  }
+  if (from.hostname.toLowerCase() !== to.hostname.toLowerCase()) {
+    return 'www-change';
+  }
+  if (from.pathname !== to.pathname || from.search !== to.search) {
+    return 'path-change';
+  }
+  return 'other';
+}
+
+// Real sites frequently need more than one hop to go from plain HTTP to
+// HTTPS — e.g. http://example.com -> http://www.example.com (still HTTP,
+// a domain redirect) -> https://www.example.com (the actual upgrade).
+// Checking only the first hop (as before) misreports this common pattern
+// as "not redirecting to HTTPS" even though the site does upgrade. This
+// follows the full chain, the same way the main scan does, and succeeds as
+// soon as any hop lands on HTTPS.
+async function checkHttpToHttpsUpgrade(hostname: string): Promise<boolean> {
+  let currentUrl = `http://${hostname}`;
+  let hops = 0;
+  try {
+    while (hops <= MAX_REDIRECTS) {
+      if (currentUrl.startsWith('https://')) return true;
+      const res = await fetch(currentUrl, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': USER_AGENT },
+      });
+      if (res.status < 300 || res.status >= 400) return false;
       const location = res.headers.get('location');
-      return Boolean(location && location.startsWith('https'));
+      if (!location) return false;
+      currentUrl = new URL(location, currentUrl).href;
+      hops++;
     }
-    return false;
+    return currentUrl.startsWith('https://');
   } catch {
     return false;
   }
@@ -376,7 +488,7 @@ async function getHttpsInfo(
       hstsPreloadReady: false,
     };
   }
-  const redirectFromHttp = await checkHttpRedirect(hostname);
+  const redirectFromHttp = await checkHttpToHttpsUpgrade(hostname);
   const hstsLower = (hstsValue || '').toLowerCase();
   const maxAgeMatch = hstsLower.match(/max-age=(\d+)/);
   const hstsPreloadReady =
@@ -401,7 +513,7 @@ interface HeaderAnalysis {
   vulnerabilities: Vulnerabilities;
 }
 
-function analyzeHeaders(headers: Headers, cspEnforced: boolean): HeaderAnalysis {
+function analyzeHeaders(headers: Headers, httpsEnabled: boolean): HeaderAnalysis {
   const lower = new Map<string, string>();
   headers.forEach((value, key) => {
     if (!lower.has(key.toLowerCase())) lower.set(key.toLowerCase(), value);
@@ -417,34 +529,66 @@ function analyzeHeaders(headers: Headers, cspEnforced: boolean): HeaderAnalysis 
   const vulns = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   const headerInfos: SecurityHeader[] = [];
 
+  // A CSP with a frame-ancestors directive already provides clickjacking
+  // protection and is the modern replacement for X-Frame-Options. Don't
+  // treat a missing X-Frame-Options as a real gap when that's covered.
+  const cspValue = (lower.get('content-security-policy') || lower.get('content-security-policy-report-only') || '').toLowerCase();
+  const cspHasFrameAncestors = cspValue.includes('frame-ancestors');
+
   for (const spec of HEADER_SPECS) {
     const value = lower.get(spec.key) ?? '';
     const present = Boolean(value);
     const weakness = spec.checkWeakness ? spec.checkWeakness(value) : { isWeak: false, penalty: 0 };
     let status: HeaderStatus;
     let pointsAwarded = 0;
+    // Per-instance severity override — starts from the spec's default but
+    // can be softened for context-dependent cases (HSTS on a non-HTTPS
+    // site, X-Frame-Options when CSP frame-ancestors already covers it).
+    let severity: Severity = spec.severity;
+    let weaknessReason = weakness.reason;
+
+    // HSTS only means anything once HTTPS is actually working. Flagging it
+    // as a separate high-severity vulnerability on top of "Enable HTTPS" is
+    // redundant and inflates the vulnerability count.
+    const hstsNotApplicable = spec.key === 'strict-transport-security' && !httpsEnabled;
+    // Clickjacking is already covered by CSP frame-ancestors.
+    const frameProtectionCovered = spec.key === 'x-frame-options' && !present && cspHasFrameAncestors;
 
     if (spec.key === 'content-security-policy' && !present && lower.has('content-security-policy-report-only')) {
       status = 'report-only';
+      severity = 'info';
       vulns.info++;
     } else if (spec.key === 'content-security-policy-report-only' && present) {
       status = 'report-only';
       pointsAwarded = spec.maxPoints;
+    } else if (hstsNotApplicable) {
+      status = 'missing';
+      severity = 'info';
+      weaknessReason = 'HTTPS is not enabled, so HSTS would have no effect yet — fix HTTPS first.';
+      vulns.info++;
+    } else if (frameProtectionCovered) {
+      status = 'missing';
+      severity = 'info';
+      weaknessReason = "Clickjacking is already mitigated by the Content-Security-Policy frame-ancestors directive; X-Frame-Options is optional here.";
+      pointsAwarded = spec.maxPoints * 0.6;
+      vulns.info++;
     } else if (!present) {
       status = 'missing';
       if (!spec.isOptional) {
-        if (spec.severity === 'critical') vulns.critical++;
-        else if (spec.severity === 'high') vulns.high++;
-        else if (spec.severity === 'medium') vulns.medium++;
-        else if (spec.severity === 'low') vulns.low++;
+        if (severity === 'critical') vulns.critical++;
+        else if (severity === 'high') vulns.high++;
+        else if (severity === 'medium') vulns.medium++;
+        else if (severity === 'low') vulns.low++;
+        else vulns.info++;
       } else {
         vulns.info++;
       }
     } else if (weakness.isWeak) {
       status = 'weak';
       pointsAwarded = Math.max(spec.maxPoints - weakness.penalty, spec.maxPoints * 0.4);
-      if (spec.severity === 'high' || spec.severity === 'critical') vulns.medium++;
-      else vulns.low++;
+      if (severity === 'high' || severity === 'critical') vulns.medium++;
+      else if (severity === 'medium') vulns.low++;
+      else vulns.info++;
     } else {
       status = 'present';
       pointsAwarded = spec.maxPoints;
@@ -462,16 +606,15 @@ function analyzeHeaders(headers: Headers, cspEnforced: boolean): HeaderAnalysis 
       description: spec.description,
       whyItMatters: spec.whyItMatters,
       exampleValue: spec.exampleValue,
-      severity: spec.severity,
+      severity,
+      tier: spec.tier,
       isWeak: weakness.isWeak,
-      weaknessReason: weakness.reason,
+      weaknessReason,
       pointsAwarded: earned,
       maxPoints: spec.maxPoints,
       category: spec.category,
     });
   }
-
-  void cspEnforced;
 
   const vulnerabilities: Vulnerabilities = {
     count: vulns.critical + vulns.high + vulns.medium + vulns.low + vulns.info,
@@ -490,12 +633,19 @@ function analyzeCookies(cookies: CookieInfo[]): CookieAnalysis {
   if (cookies.length === 0) return { score: 0, maxScore: 0 };
   const maxScore = 10;
   const secureCount = cookies.filter((c) => c.secure).length;
-  const httpOnlyCount = cookies.filter((c) => c.httpOnly).length;
-  const sameSiteCount = cookies.filter((c) => c.sameSite !== 'None').length;
+  // HttpOnly is only weighted against cookies that look like they carry
+  // session/auth state — a site full of non-sensitive, intentionally
+  // JS-readable cookies shouldn't be marked down for that. If nothing looks
+  // sensitive, fall back to judging all cookies so the signal isn't lost
+  // entirely.
+  const sensitiveCookies = cookies.filter((c) => c.looksSensitive);
+  const httpOnlyRelevant = sensitiveCookies.length > 0 ? sensitiveCookies : cookies;
+  const httpOnlyCount = httpOnlyRelevant.filter((c) => c.httpOnly).length;
+  const sameSiteOkCount = cookies.filter((c) => c.sameSite !== 'None' || c.secure).length;
   const score =
-    (secureCount / cookies.length) * 4 +
-    (httpOnlyCount / cookies.length) * 3 +
-    (sameSiteCount / cookies.length) * 3;
+    (secureCount / cookies.length) * 5 +
+    (httpOnlyCount / httpOnlyRelevant.length) * 3 +
+    (sameSiteOkCount / cookies.length) * 2;
   return { score: Math.round(score * 10) / 10, maxScore };
 }
 
@@ -546,7 +696,12 @@ function computeScore(
   if (serverInfo.compression && serverInfo.compression !== 'none') infrastructure += 2;
   if (serverInfo.finalStatusCode > 0 && serverInfo.finalStatusCode < 400) infrastructure += 3;
 
-  const maxTotal = 40 + 35 + 42 + cookieMax + 10;
+  // The category maximums intentionally sum to more than 100 (e.g. a site
+  // can't realistically max out both the enforcing-CSP and
+  // report-only-CSP sub-scores at once), so the final score is capped at
+  // 100. Report maxTotal as 100 to match what's actually shown — showing
+  // the raw, unreachable category-sum here just confuses the percentage.
+  const maxTotal = 100;
   const total = Math.min(transport + content + browser + cookies + infrastructure, 100);
 
   return {
@@ -674,6 +829,12 @@ const REC_TEMPLATES: Record<string, RecTemplate> = {
   },
 };
 
+function tierPrefix(tier: HeaderTier): string {
+  if (tier === 'optional') return 'Optional hardening: ';
+  if (tier === 'recommended') return 'Recommended: ';
+  return '';
+}
+
 function buildRecommendations(
   headerInfos: SecurityHeader[],
   httpsInfo: HttpsInfo,
@@ -683,44 +844,55 @@ function buildRecommendations(
   const recs: Recommendation[] = [];
   let idx = 1;
 
-  const problematic = headerInfos.filter((h) => h.status === 'missing' || h.status === 'weak');
+  // Headers whose "missing" status is already explained by something else
+  // (HSTS before HTTPS is enabled at all; X-Frame-Options when CSP
+  // frame-ancestors already covers clickjacking) don't need their own
+  // recommendation — that would just duplicate the real underlying issue.
+  const alreadyExplained = new Set(['Strict-Transport-Security', 'X-Frame-Options']);
+  const problematic = headerInfos.filter((h) => {
+    if (h.status !== 'missing' && h.status !== 'weak') return false;
+    if (h.severity === 'info' && alreadyExplained.has(h.name)) return false;
+    return true;
+  });
   problematic.sort((a, b) => {
     const order: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
     return (order[a.severity] ?? 5) - (order[b.severity] ?? 5);
   });
 
-  const headerNameToSpecKey = new Map(HEADER_SPECS.map((s) => [s.prettyName, s.key]));
+  const specByPrettyName = new Map(HEADER_SPECS.map((s) => [s.prettyName, s]));
   for (const header of problematic) {
-    const specKey = headerNameToSpecKey.get(header.name);
-    const template = specKey ? REC_TEMPLATES[specKey] : undefined;
-    if (!template) continue;
+    const spec = specByPrettyName.get(header.name);
+    const template = spec ? REC_TEMPLATES[spec.key] : undefined;
+    if (!template || !spec) continue;
     recs.push({
       id: `rec-${idx++}`,
-      title: template.title,
+      title: `${tierPrefix(spec.tier)}${template.title}`,
       description: template.description,
       whyItMatters: template.whyItMatters,
       impact: template.impact,
       exampleImplementation: template.exampleImplementation,
       severity: header.severity,
+      tier: spec.tier,
       references: template.references,
     });
   }
 
-  for (const cookie of cookies) {
-    if (cookie.weaknesses.length > 0) {
-      recs.push({
-        id: `rec-${idx++}`,
-        title: 'Secure your cookies',
-        description: `The cookie "${cookie.name || '(unnamed)'}" has weaknesses: ${cookie.weaknesses.join('; ')}.`,
-        whyItMatters:
-          'Insecure cookies can be stolen over HTTP, accessed via JavaScript, or used in CSRF attacks. Proper flags prevent these attacks.',
-        impact: 'Prevents session hijacking, theft, and CSRF attacks.',
-        exampleImplementation: 'Set-Cookie: name=value; Secure; HttpOnly; SameSite=Lax',
-        references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies'],
-        severity: 'medium',
-      });
-      break;
-    }
+  const weakCookies = cookies.filter((c) => c.weaknesses.length > 0);
+  if (weakCookies.length > 0) {
+    const names = weakCookies.map((c) => c.name || '(unnamed)').join(', ');
+    const allIssues = Array.from(new Set(weakCookies.flatMap((c) => c.weaknesses)));
+    recs.push({
+      id: `rec-${idx++}`,
+      title: 'Secure your cookies',
+      description: `${weakCookies.length} of ${cookies.length} cookie(s) have real weaknesses (${names}): ${allIssues.join('; ')}.`,
+      whyItMatters:
+        'Cookies missing Secure or HttpOnly where they matter can be intercepted over plain HTTP or stolen via XSS. Proper flags prevent these attacks.',
+      impact: 'Prevents session hijacking, cookie theft, and CSRF attacks.',
+      exampleImplementation: 'Set-Cookie: name=value; Secure; HttpOnly; SameSite=Lax',
+      references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies'],
+      severity: 'medium',
+      tier: 'essential',
+    });
   }
 
   if (serverInfo.server || serverInfo.xPoweredBy || serverInfo.poweredBy) {
@@ -735,6 +907,7 @@ function buildRecommendations(
       exampleImplementation: 'Remove or obscure the Server and X-Powered-By response headers in your web server config.',
       references: ['https://owasp.org/www-project-secure-headers/'],
       severity: 'low',
+      tier: 'recommended',
     });
   }
 
@@ -749,6 +922,21 @@ function buildRecommendations(
       exampleImplementation: "Obtain a certificate from Let's Encrypt and redirect HTTP to HTTPS.",
       references: ['https://letsencrypt.org/'],
       severity: 'critical',
+      tier: 'essential',
+    });
+  } else if (!httpsInfo.redirectFromHttp) {
+    recs.push({
+      id: `rec-${idx++}`,
+      title: 'Redirect HTTP traffic to HTTPS',
+      description:
+        'HTTPS is available, but plain HTTP requests are not being redirected to HTTPS. Visitors who type the address without "https://" (or follow an old http:// link) stay on an unencrypted connection.',
+      whyItMatters:
+        'Without a redirect, users can be silently downgraded to HTTP by a network attacker (SSL stripping), exposing their traffic.',
+      impact: 'Ensures every visitor ends up on an encrypted connection regardless of how they arrived.',
+      exampleImplementation: 'Configure your web server or load balancer to 301-redirect all http:// requests to the https:// equivalent.',
+      references: ['https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security'],
+      severity: 'medium',
+      tier: 'essential',
     });
   }
 
@@ -806,10 +994,12 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
       res.headers.forEach((value, key) => {
         if (!mergedHeaders.has(key)) mergedHeaders.set(key, value);
       });
+      const previousUrl = redirectChain.length > 0 ? redirectChain[redirectChain.length - 1].url : null;
       redirectChain.push({
         url: currentUrl,
         status: res.status,
         https: currentUrl.startsWith('https://'),
+        redirectType: previousUrl ? classifyRedirect(previousUrl, currentUrl) : 'initial',
       });
 
       if (res.status >= 300 && res.status < 400) {
@@ -845,8 +1035,7 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
   const httpsOk = httpStatus > 0 && httpStatus < 500 && currentUrl.startsWith('https://');
   const hstsValue = mergedHeaders.get('strict-transport-security') ?? '';
   const httpsInfo = await getHttpsInfo(hostname, httpsOk, hstsValue);
-  const cspEnforced = Boolean(mergedHeaders.get('content-security-policy'));
-  const { headerInfos, scoreByCategory, vulnerabilities } = analyzeHeaders(mergedHeaders, cspEnforced);
+  const { headerInfos, scoreByCategory, vulnerabilities } = analyzeHeaders(mergedHeaders, httpsOk);
   const cookies = extractCookies(mergedHeaders);
   const cookieAnalysis = analyzeCookies(cookies);
   const serverInfo = getServerInfo(mergedHeaders, httpStatus, redirectChain, currentUrl);

@@ -74,10 +74,18 @@ const categoryLabels: Record<string, string> = {
   infrastructure: 'Infra',
 };
 
+const tierConfig: Record<string, { label: string; className: string }> = {
+  essential: { label: 'Essential', className: 'border-destructive/30 bg-destructive/10 text-destructive' },
+  recommended: { label: 'Recommended', className: 'border-warning/30 bg-warning/10 text-warning' },
+  optional: { label: 'Optional', className: 'border-muted-foreground/30 bg-muted/10 text-muted-foreground' },
+};
+
 export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const presentCount = headers.filter((h) => h.status === 'present').length;
   const totalCount = headers.length;
+  const essentialHeaders = headers.filter((h) => h.tier === 'essential');
+  const essentialPresentCount = essentialHeaders.filter((h) => h.status === 'present').length;
 
   const toggle = (name: string) => {
     setExpanded((prev) => (prev === name ? null : name));
@@ -184,6 +192,9 @@ export function SecurityHeadersTable({ headers }: SecurityHeadersTableProps) {
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                                   {categoryLabels[header.category]}
+                                </Badge>
+                                <Badge variant="outline" className={tierConfig[header.tier].className}>
+                                  {tierConfig[header.tier].label}
                                 </Badge>
                                 {header.status === 'report-only' && (
                                   <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
