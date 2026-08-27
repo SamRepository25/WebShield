@@ -683,26 +683,34 @@ function computeScore(
     (httpsInfo.enabled ? 10 : 0) +
     (httpsInfo.redirectFromHttp ? 5 : 0) +
     (httpsInfo.hstsPreloadReady ? 5 : 0);
+
   const content = scoreByCategory.content;
   const browser = scoreByCategory.browser;
   const cookies = cookieScore;
 
   let infrastructure = 0;
-  if (!serverInfo.server && !serverInfo.xPoweredBy && !serverInfo.poweredBy) infrastructure += 5;
-  else {
+
+  if (!serverInfo.server && !serverInfo.xPoweredBy && !serverInfo.poweredBy) {
+    infrastructure += 5;
+  } else {
     if (!serverInfo.server) infrastructure += 2;
     if (!serverInfo.xPoweredBy && !serverInfo.poweredBy) infrastructure += 3;
   }
-  if (serverInfo.compression && serverInfo.compression !== 'none') infrastructure += 2;
-  if (serverInfo.finalStatusCode > 0 && serverInfo.finalStatusCode < 400) infrastructure += 3;
 
-  // The category maximums intentionally sum to more than 100 (e.g. a site
-  // can't realistically max out both the enforcing-CSP and
-  // report-only-CSP sub-scores at once), so the final score is capped at
-  // 100. Report maxTotal as 100 to match what's actually shown — showing
-  // the raw, unreachable category-sum here just confuses the percentage.
+  if (serverInfo.compression && serverInfo.compression !== 'none') {
+    infrastructure += 2;
+  }
+
+  if (serverInfo.finalStatusCode > 0 && serverInfo.finalStatusCode < 400) {
+    infrastructure += 3;
+  }
+
   const maxTotal = 100;
-  const total = Math.min(transport + content + browser + cookies + infrastructure, 100);
+
+  const total = Math.min(
+    transport + content + browser + cookies + infrastructure,
+    maxTotal
+  );
 
   return {
     total,
@@ -710,14 +718,13 @@ function computeScore(
       transport: Math.round(transport * 10) / 10,
       content: Math.round(content * 10) / 10,
       browser: Math.round(browser * 10) / 10,
-      cookies,
+      cookies: Math.round(cookies * 10) / 10,
       infrastructure: Math.round(infrastructure * 10) / 10,
       total: Math.round(total * 10) / 10,
       maxTotal,
     },
   };
 }
-
 export function gradeFromScore(score: number): string {
   if (score >= 90) return 'A';
   if (score >= 80) return 'B';
