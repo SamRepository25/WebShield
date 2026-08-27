@@ -46,15 +46,18 @@ export default function Home() {
     [scanMutation]
   );
 
-  const handleRescan = useCallback(() => {
-    setScanState('idle');
-    setResult(null);
-    setScannedUrl('');
-    setErrorMessage('');
-    scanMutation.reset();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [scanMutation]);
+const handleRescan = useCallback(() => {
+  if (!scannedUrl) {
+    return;
+  }
 
+  setResult(null);
+  setErrorMessage('');
+
+  handleScan(scannedUrl);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}, [scannedUrl, handleScan]);
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <Navbar />
