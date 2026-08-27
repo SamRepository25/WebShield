@@ -21,7 +21,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               ref: context.sha,
-              environment: 'production',
+              environment: 'WebShield - Production',
               auto_merge: false,
               required_contexts: [],
               description: 'Deployed via Netlify'
