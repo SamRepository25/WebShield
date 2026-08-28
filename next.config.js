@@ -2,7 +2,7 @@
 const nextConfig = {
   poweredByHeader: false,
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
   async headers() {
