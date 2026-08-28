@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 interface ScanErrorProps {
   url: string;
   message: string;
+  onNewScan: () => void;
   onRetry: () => void;
 }
 
-export function ScanError({ url, message, onRetry }: ScanErrorProps) {
+export function ScanError({ url, message, onNewScan, onRetry }: ScanErrorProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -51,7 +52,7 @@ export function ScanError({ url, message, onRetry }: ScanErrorProps) {
 
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button
-              onClick={onRetry}
+              onClick={onNewScan}
               variant="outline"
               className="gap-2 border-border bg-secondary/30"
             >
@@ -59,7 +60,7 @@ export function ScanError({ url, message, onRetry }: ScanErrorProps) {
               New Scan
             </Button>
             <Button
-              onClick={() => window.location.reload()}
+              onClick={onRetry}
               className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
             >
               <RotateCcw className="h-4 w-4" />
