@@ -1,3 +1,4 @@
+import tls from 'node:tls';
 import type {
   ScanResult,
   SecurityHeader,
@@ -470,6 +471,102 @@ async function checkHttpToHttpsUpgrade(hostname: string): Promise<boolean> {
     return false;
   }
 }
+function inspectTls(hostname: string): Promise<{
+  valid: boolean;
+  expiresAt: string;
+  issuer: string;
+  subject: string;
+  protocol: string;
+  daysRemaining: number;
+}> {
+  return new Promise((resolve) => {
+    const socket = tls.connect(
+      {
+        host: hostname,
+        port: 443,
+        servername: hostname,
+        rejectUnauthorized: false,
+      },
+      () => {
+        try {
+          const certificate = socket.getPeerCertificate();
+
+          const expiresAt = certificate.valid_to || '';
+          const validTo = expiresAt ? new Date(expiresAt) : null;
+
+          const daysRemaining =
+            validTo && !Number.isNaN(validTo.getTime())
+              ? Math.ceil(
+                  (validTo.getTime() - Date.now()) /
+                    (1000 * 60 * 60 * 24)
+                )
+              : 0;
+
+          const formatCertificateField = (
+            value: Record<string, string> | string | undefined
+          ) => {
+            if (!value) return '';
+            if (typeof value === 'string') return value;
+
+            return Object.entries(value)
+              .map(([key, fieldValue]) => `${key}=${fieldValue}`)
+              .join(', ');
+          };
+
+          resolve({
+  valid: true,
+  expiresAt,
+  issuer: formatCertificateField(
+    certificate.issuer as unknown as Record<string, string>
+  ),
+  subject: formatCertificateField(
+    certificate.subject as unknown as Record<string, string>
+  ),
+  protocol: socket.getProtocol() || '',
+  daysRemaining,
+});
+        } catch {
+          resolve({
+            valid: false,
+            expiresAt: '',
+            issuer: '',
+            subject: '',
+            protocol: '',
+            daysRemaining: 0,
+          });
+        } finally {
+          socket.end();
+        }
+      }
+    );
+
+    socket.setTimeout(8000);
+
+    socket.on('timeout', () => {
+      socket.destroy();
+
+      resolve({
+        valid: false,
+        expiresAt: '',
+        issuer: '',
+        subject: '',
+        protocol: '',
+        daysRemaining: 0,
+      });
+    });
+
+    socket.on('error', () => {
+      resolve({
+        valid: false,
+        expiresAt: '',
+        issuer: '',
+        subject: '',
+        protocol: '',
+        daysRemaining: 0,
+      });
+    });
+  });
+}
 
 async function getHttpsInfo(
   hostname: string,
@@ -495,16 +592,18 @@ async function getHttpsInfo(
     hstsLower.includes('preload') &&
     hstsLower.includes('includesubdomains') &&
     Boolean(maxAgeMatch?.[1] && parseInt(maxAgeMatch[1], 10) >= 31536000);
-  return {
-    enabled: true,
-    redirectFromHttp,
-    valid: true,
-    expiresAt: '',
-    issuer: 'Verified via TLS connection',
-    protocol: 'TLS',
-    daysRemaining: 0,
-    hstsPreloadReady,
-  };
+ const tlsInfo = await inspectTls(hostname);
+
+return {
+  enabled: true,
+  redirectFromHttp,
+  valid: tlsInfo.valid,
+  expiresAt: tlsInfo.expiresAt,
+  issuer: tlsInfo.issuer,
+  protocol: tlsInfo.protocol,
+  daysRemaining: tlsInfo.daysRemaining,
+  hstsPreloadReady,
+};
 }
 
 interface HeaderAnalysis {
