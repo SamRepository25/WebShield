@@ -14,6 +14,7 @@ import {
   Check,
   Timer,
   ArrowRight,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,9 +43,10 @@ import type { ScanResult } from '@/lib/types';
 interface ScanResultsProps {
   result: ScanResult;
   onRescan: () => void;
+  onNewScan: () => void;
 }
 
-export function ScanResults({ result, onRescan }: ScanResultsProps) {
+export function ScanResults({ result, onRescan, onNewScan }: ScanResultsProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
@@ -129,38 +131,17 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 border-border bg-secondary/30"
-            onClick={handleCopy}
-            aria-label="Copy results to clipboard"
-          >
-            {copied ? (
-              <Check className="h-4 w-4 text-success" aria-hidden="true" />
-            ) : (
-              <Copy className="h-4 w-4" aria-hidden="true" />
-            )}
+          <Button variant="outline" size="sm" className="gap-2 border-border bg-secondary/30" onClick={handleCopy} aria-label="Copy results to clipboard">
+            {copied ? <Check className="h-4 w-4 text-success" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
             Copy
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 border-border bg-secondary/30"
-            onClick={handleShare}
-            aria-label="Share results"
-          >
+          <Button variant="outline" size="sm" className="gap-2 border-border bg-secondary/30" onClick={handleShare} aria-label="Share results">
             <Share2 className="h-4 w-4" aria-hidden="true" />
             Share
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 border-border bg-secondary/30"
-                aria-label="Export results"
-              >
+              <Button variant="outline" size="sm" className="gap-2 border-border bg-secondary/30" aria-label="Export results">
                 <Download className="h-4 w-4" aria-hidden="true" />
                 Export
               </Button>
@@ -176,12 +157,11 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button
-            size="sm"
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
-            onClick={onRescan}
-            aria-label="Rescan website"
-          >
+          <Button variant="outline" size="sm" className="gap-2 border-border bg-secondary/30" onClick={onNewScan} aria-label="Start a new scan">
+            <Search className="h-4 w-4" aria-hidden="true" />
+            New Scan
+          </Button>
+          <Button size="sm" className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90 glow-primary" onClick={onRescan} aria-label="Rescan website">
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
             Rescan
           </Button>
@@ -189,71 +169,32 @@ export function ScanResults({ result, onRescan }: ScanResultsProps) {
       </motion.div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="lg:col-span-1"
-        >
-          <SecurityScoreCard
-            score={result.score}
-            grade={result.grade}
-            breakdown={result.scoreBreakdown}
-          />
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-1">
+          <SecurityScoreCard score={result.score} grade={result.grade} breakdown={result.scoreBreakdown} />
         </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="lg:col-span-2"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="lg:col-span-2">
           <HttpsStatusCard https={result.https} />
         </motion.div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35 }}
-        className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ServerInfoCard server={result.server} />
         <CookiesCard cookies={result.cookies} />
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="mt-6"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mt-6">
         <VulnerabilitySummary vulnerabilities={result.vulnerabilities} />
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mt-6"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-6">
         <SecurityHeadersTable headers={result.headers} />
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="mt-6"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="mt-6">
         <Recommendations recommendations={result.recommendations} />
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="mt-6"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="mt-6">
         <RawHeadersAccordion rawHeaders={result.rawHeaders} />
       </motion.div>
     </motion.div>
