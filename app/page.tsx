@@ -37,9 +37,7 @@ export default function Home() {
             setScanState('results');
           },
           onError: (error: Error) => {
-            setErrorMessage(
-              error.message || 'Failed to scan the website.'
-            );
+            setErrorMessage(error.message || 'Failed to scan the website.');
             setScanState('error');
           },
         }
@@ -48,7 +46,6 @@ export default function Home() {
     [scanMutation]
   );
 
-  // Rescan the same URL.
   const handleRescan = useCallback(() => {
     if (!scannedUrl) return;
 
@@ -56,48 +53,30 @@ export default function Home() {
     setErrorMessage('');
     handleScan(scannedUrl);
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [scannedUrl, handleScan]);
 
-  // Return to the homepage so the user can enter a different URL.
   const handleNewScan = useCallback(() => {
     setResult(null);
     setErrorMessage('');
     setScannedUrl('');
     setScanState('idle');
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Navbar navigation
   const handleNavigate = useCallback((section: string) => {
-    // If currently showing results/loading/error,
-    // return to the homepage sections first
     if (scanState !== 'idle') {
       setScanState('idle');
 
-      // Wait for the homepage sections to render
       setTimeout(() => {
-        document.getElementById(section)?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
+        document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 150);
 
       return;
     }
 
-    // Already on homepage
-    document.getElementById(section)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
+    document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [scanState]);
 
   return (
@@ -108,31 +87,20 @@ export default function Home() {
         <AnimatePresence mode="wait">
           {scanState === 'idle' && (
             <div key="idle">
-              <Hero
-                onScan={handleScan}
-                isScanning={false}
-              />
-
+              <Hero onScan={handleScan} isScanning={false} />
               <FeaturesSection />
-
               <HowItWorks />
             </div>
           )}
 
           {scanState === 'loading' && (
-            <div
-              key="loading"
-              className="pt-20"
-            >
+            <div key="loading" className="pt-20">
               <LoadingAnimation url={scannedUrl} />
             </div>
           )}
 
           {scanState === 'error' && (
-            <div
-              key="error"
-              className="pt-20"
-            >
+            <div key="error" className="pt-20">
               <ScanError
                 url={scannedUrl}
                 message={errorMessage}
@@ -143,13 +111,11 @@ export default function Home() {
           )}
 
           {scanState === 'results' && result && (
-            <div
-              key="results"
-              className="pt-20"
-            >
+            <div key="results" className="pt-20">
               <ScanResults
                 result={result}
                 onRescan={handleRescan}
+                onNewScan={handleNewScan}
               />
             </div>
           )}
