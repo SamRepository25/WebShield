@@ -48,13 +48,12 @@ export default function Home() {
     [scanMutation]
   );
 
-  // Rescan the same URL
+  // Rescan the same URL.
   const handleRescan = useCallback(() => {
     if (!scannedUrl) return;
 
     setResult(null);
     setErrorMessage('');
-
     handleScan(scannedUrl);
 
     window.scrollTo({
@@ -62,6 +61,19 @@ export default function Home() {
       behavior: 'smooth',
     });
   }, [scannedUrl, handleScan]);
+
+  // Return to the homepage so the user can enter a different URL.
+  const handleNewScan = useCallback(() => {
+    setResult(null);
+    setErrorMessage('');
+    setScannedUrl('');
+    setScanState('idle');
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  }, []);
 
   // Navbar navigation
   const handleNavigate = useCallback((section: string) => {
@@ -124,6 +136,7 @@ export default function Home() {
               <ScanError
                 url={scannedUrl}
                 message={errorMessage}
+                onNewScan={handleNewScan}
                 onRetry={handleRescan}
               />
             </div>
