@@ -11,6 +11,7 @@ permissions:
 jobs:
   deployment:
     runs-on: ubuntu-latest
+
     steps:
       - name: Create GitHub Deployment
         id: deployment
@@ -24,9 +25,22 @@ jobs:
               environment: 'WebShield - Production',
               auto_merge: false,
               required_contexts: [],
-              description: 'Deployed via Netlify'
+              description: 'Deploying via Netlify'
             });
+
             core.setOutput('deployment_id', deployment.data.id);
+
+      - name: Mark Deployment In Progress
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.deployment_id }},
+              state: 'in_progress',
+              description: 'Waiting for Netlify deployment'
+            });
 
       - name: Poll Netlify for build status
         id: netlify_status
@@ -40,29 +54,41 @@ jobs:
           STATE=""
 
           while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            RESPONSE=$(curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
-              "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/deploys?per_page=5")
+
+            RESPONSE=$(curl -sS \
+              -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+              "https://api.netlify.com/api/v1/sites/$NETLIFY_SITE_ID/deploys?per_page=20")
 
             STATE=$(echo "$RESPONSE" | python3 -c "
-          import json, sys
+          import json
+          import sys
+
           data = json.load(sys.stdin)
-          for d in data:
-              if d.get('commit_ref') == '$COMMIT_SHA':
-                  print(d.get('state'))
+
+          for deploy in data:
+              if deploy.get('commit_ref') == '$COMMIT_SHA':
+                  print(deploy.get('state', ''))
                   break
           ")
 
-            if [ "$STATE" == "ready" ]; then
-              echo "Netlify build succeeded."
-              break
-            elif [ "$STATE" == "error" ]; then
-              echo "Netlify build failed."
+            echo "Commit: $COMMIT_SHA"
+            echo "Netlify state: $STATE"
+
+            if [ "$STATE" = "ready" ]; then
+              echo "Netlify deployment succeeded."
               break
             fi
 
-            echo "Waiting for Netlify build... (attempt $((ATTEMPT+1))/$MAX_ATTEMPTS)"
+            if [ "$STATE" = "error" ]; then
+              echo "Netlify deployment failed."
+              break
+            fi
+
+            echo "Waiting for Netlify deployment... ($((ATTEMPT + 1))/$MAX_ATTEMPTS)"
+
             sleep 10
-            ATTEMPT=$((ATTEMPT+1))
+
+            ATTEMPT=$((ATTEMPT + 1))
           done
 
           echo "final_state=$STATE" >> "$GITHUB_OUTPUT"
@@ -71,13 +97,38 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const finalState = "${{ steps.netlify_status.outputs.final_state }}";
-            const state = finalState === "ready" ? "success" : "failure";
+            const finalState = '${{ steps.netlify_status.outputs.final_state }}';
+
+            console.log(`Final Netlify state: ${finalState}`);
+
+            let deploymentState;
+            let description;
+
+            if (finalState === 'ready') {
+              deploymentState = 'success';
+              description = 'Successfully deployed to Netlify';
+            } else if (finalState === 'error') {
+              deploymentState = 'failure';
+              description = 'Netlify deployment failed';
+            } else {
+              deploymentState = 'failure';
+              description = `Netlify deployment timed out or returned: ${finalState || 'no state'}`;
+            }
+
             await github.rest.repos.createDeploymentStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               deployment_id: ${{ steps.deployment.outputs.deployment_id }},
-              state: state,
+              state: deploymentState,
+              environment: 'WebShield - Production',
               environment_url: 'https://webshield-security.netlify.app',
-              description: state === 'success' ? 'Deployed to Netlify' : 'Netlify build failed or timed out'
+              description: description,
+              log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
+
+      - name: Fail workflow if Netlify failed
+        if: steps.netlify_status.outputs.final_state != 'ready'
+        run: |
+          echo "Netlify deployment did not succeed."
+          echo "Final state: ${{ steps.netlify_status.outputs.final_state }}"
+          exit 1
