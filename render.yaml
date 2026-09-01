@@ -10,6 +10,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
       - key: FRONTEND_ORIGIN
         value: https://webshield-zpv1.onrender.com
       - key: UPSTASH_REDIS_REST_URL
