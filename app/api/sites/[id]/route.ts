@@ -4,10 +4,15 @@ import { updateSite, deleteSite } from '@/lib/monitoring-service';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ): Promise<NextResponse> {
+  const { id } = await params;
   let body: {
     name?: string;
     url?: string;
@@ -26,7 +31,7 @@ export async function PUT(
   }
 
   try {
-    const site = await updateSite(params.id, {
+    const site = await updateSite(id, {
       name: body.name,
       url: body.url,
       frequency: body.frequency as '6h' | '12h' | 'daily' | 'weekly' | undefined,
@@ -42,10 +47,11 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ): Promise<NextResponse> {
+  const { id } = await params;
   try {
-    await deleteSite(params.id);
+    await deleteSite(id);
     return new NextResponse(null, { status: 204 });
   } catch (err) {
     return NextResponse.json({ detail: (err as Error).message }, { status: 500 });
