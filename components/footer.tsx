@@ -1,4 +1,4 @@
-import { Shield, Github, Twitter, Linkedin } from 'lucide-react';
+import { Shield, Github, Linkedin } from 'lucide-react';
 
 const footerLinks = {
   Product: [
@@ -48,9 +48,11 @@ export function Footer() {
               <a
                 href="#"
                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
-                aria-label="Twitter"
+                aria-label="X"
               >
-                <Twitter className="h-4 w-4" />
+                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817-5.964 6.817H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z" />
+                </svg>
               </a>
               <a
                 href="#"
