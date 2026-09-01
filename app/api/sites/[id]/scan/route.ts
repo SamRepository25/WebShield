@@ -6,12 +6,17 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 25;
 
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
 export async function POST(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext
 ): Promise<NextResponse> {
+  const { id } = await params;
   try {
-    const { result, diff } = await executeScan(params.id, 'manual');
+    const { result, diff } = await executeScan(id, 'manual');
     return NextResponse.json({ result, diff });
   } catch (err) {
     if (err instanceof ScanError) {
