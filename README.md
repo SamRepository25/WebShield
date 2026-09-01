@@ -1,6 +1,6 @@
 # 🛡️ WebShield
 
-A modern website security analyzer that evaluates common web security practices, HTTP security headers, and HTTPS configuration to provide an easy-to-understand security score with actionable recommendations.
+A modern website security analyzer that evaluates common web security practices, HTTP security headers, HTTPS configuration, cookies, redirects, and server exposure to provide an easy-to-understand security score with actionable recommendations.
 
 > Built with **Next.js**, **TypeScript**, and **Tailwind CSS**.
 
@@ -12,6 +12,8 @@ WebShield is deployed at:
 
 https://webshield-zpv1.onrender.com
 
+The optional FastAPI backend is deployed separately through `render.yaml`.
+
 ---
 
 ## ✨ Features
@@ -21,9 +23,38 @@ https://webshield-zpv1.onrender.com
 - 📊 Security Score & Grade
 - ⚠️ Vulnerability Summary
 - 💡 Actionable Security Recommendations
+- 🍪 Cookie Security Analysis
+- 🔀 Redirect Chain Analysis
 - 📄 Raw HTTP Header Viewer
 - ⚡ Fast Website Scanning
 - 📱 Responsive User Interface
+
+---
+
+## 🔐 Production Security
+
+The production scanner includes:
+
+- SSRF protection for private, loopback, metadata, reserved, and internal network targets
+- Redirect-by-redirect target validation
+- Process-level DNS egress protection for server-side HTTP requests
+- Distributed scan rate limiting with Upstash Redis
+- Basic Authentication for dashboard, monitoring, and scan-history APIs
+- Secure response headers
+- Restricted FastAPI CORS policy
+
+Before production deployment, configure these server-side environment variables:
+
+```text
+ADMIN_USERNAME
+ADMIN_PASSWORD
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
+FRONTEND_ORIGIN
+WEBSHIELD_INTERNAL_API_SECRET
+```
+
+Never expose admin or Redis credentials through `NEXT_PUBLIC_*` variables.
 
 ---
 
@@ -34,6 +65,9 @@ https://webshield-zpv1.onrender.com
 - TypeScript
 - Tailwind CSS
 - Node.js
+- FastAPI
+- Python
+- Upstash Redis
 
 ---
 
@@ -44,6 +78,7 @@ app/
 components/
 hooks/
 lib/
+backend/
 public/
 ```
 
@@ -72,7 +107,7 @@ npm run dev
 
 Open:
 
-```
+```text
 http://localhost:3000
 ```
 
@@ -90,11 +125,14 @@ Start production server:
 npm start
 ```
 
+The production start command enables the SSRF egress guard automatically.
+
 ---
 
 ## 🎯 What WebShield Checks
 
 - HTTPS Availability
+- TLS certificate information
 - Security Headers
   - Strict-Transport-Security
   - Content-Security-Policy
@@ -102,6 +140,9 @@ npm start
   - X-Content-Type-Options
   - Referrer-Policy
   - Permissions-Policy
+- Cookie security
+- Redirect chain
+- Server information exposure
 - Overall Security Score
 - Security Recommendations
 - Raw Response Headers
@@ -112,13 +153,13 @@ npm start
 
 Added screenshots inside:
 
-```
+```text
 docs/
 ```
 
 Example:
 
-```
+```text
 docs/home.png
 docs/results.png
 ```
@@ -127,12 +168,10 @@ docs/results.png
 
 ## 📌 Roadmap
 
-- Export Scan Reports
 - Advanced TLS Analysis
-- Cookie Security Analysis
-- Redirect Chain Analysis
-- Security History
+- Security History Improvements
 - API Improvements
+- Expanded security checks
 
 ---
 
