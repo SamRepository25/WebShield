@@ -8,9 +8,9 @@ const footerLinks = {
     { label: 'Scan', href: '#scanner' },
   ],
   Resources: [
-    { label: 'Security Headers Guide', href: '#features' },
-    { label: 'HTTPS & SSL', href: '#features' },
-    { label: 'Vulnerability Detection', href: '#features' },
+    { label: 'Security Headers Guide', href: '/security-headers' },
+    { label: 'HTTPS & SSL', href: '/https-ssl' },
+    { label: 'Vulnerability Detection', href: '/vulnerability-detection' },
   ],
   Company: [
     { label: 'About', href: '/about' },
