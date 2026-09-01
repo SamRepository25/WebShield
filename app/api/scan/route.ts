@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runScan, ScanError } from '@/lib/scanner';
+import { assertPublicUrl } from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,37 +15,26 @@ function getClientIdentifier(request: NextRequest): string {
   );
 }
 
-const buckets = new Map<string, { count: number; resetAt: number }>();
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 20;
-
-function rateLimit(request: NextRequest): NextResponse | null {
-  const key = getClientIdentifier(request);
-  const now = Date.now();
-  const current = buckets.get(key);
-
-  if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return null;
-  }
-
-  if (current.count >= MAX_REQUESTS) {
-    return NextResponse.json(
-      { detail: 'Too many scan requests. Please try again in a minute.' },
-      {
-        status: 429,
-        headers: { 'Retry-After': String(Math.ceil((current.resetAt - now) / 1000)) },
-      }
-    );
-  }
-
-  current.count += 1;
-  return null;
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const limited = rateLimit(request);
-  if (limited) return limited;
+  const identifier = getClientIdentifier(request);
+  try {
+    const limit = await checkRateLimit(identifier);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { detail: 'Too many scan requests. Please try again in a minute.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(limit.retryAfter || 60),
+            'Cache-Control': 'no-store',
+          },
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Rate limiter error:', error);
+    return NextResponse.json({ detail: 'Rate limiter unavailable. Please try again later.' }, { status: 503 });
+  }
 
   let body: unknown;
   try {
@@ -57,7 +48,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const result = await runScan(body.url);
+    const safeUrl = await assertPublicUrl(body.url);
+    const result = await runScan(safeUrl);
     return NextResponse.json(result, {
       headers: {
         'Cache-Control': 'no-store',
@@ -66,6 +58,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (err) {
     if (err instanceof ScanError) {
       return NextResponse.json({ detail: err.message }, { status: err.status });
+    }
+
+    const message = err instanceof Error ? err.message : 'Scan failed. Please try again.';
+    if (/private|internal|reserved|resolve|credentials|ports|supported/i.test(message)) {
+      return NextResponse.json({ detail: message }, { status: 400 });
     }
 
     console.error('Scan error:', err);
