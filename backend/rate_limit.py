@@ -28,6 +28,9 @@ def check_rate_limit(identifier: str) -> tuple[bool, int]:
             _redis.expire(key, WINDOW_SECONDS)
         return count <= LIMIT, WINDOW_SECONDS if count > LIMIT else 0
 
+    if os.getenv("ENVIRONMENT", "development").lower() == "production":
+        raise RuntimeError("Distributed rate limiting is not configured.")
+
     now = time.time()
     with _lock:
         current = _memory.get(identifier)
