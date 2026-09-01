@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Shield, Github, Linkedin } from 'lucide-react';
 
 const footerLinks = {
@@ -12,9 +13,9 @@ const footerLinks = {
     { label: 'Vulnerability Detection', href: '#features' },
   ],
   Company: [
-    { label: 'About', href: '#' },
-    { label: 'Contact', href: '#' },
-    { label: 'Privacy', href: '#' },
+    { label: 'About', href: '/about' },
+    { label: 'Contact', href: '/contact' },
+    { label: 'Privacy', href: '/privacy' },
   ],
 };
 
@@ -25,14 +26,14 @@ export function Footer() {
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">
-            <a href="#" className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5">
               <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/30">
                 <Shield className="h-5 w-5 text-primary" />
               </div>
               <span className="text-lg font-bold tracking-tight">
                 Web<span className="text-gradient">Shield</span>
               </span>
-            </a>
+            </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
               Comprehensive website security analysis. Scan, analyze, and secure
               your web presence in seconds.
@@ -70,12 +71,21 @@ export function Footer() {
               <ul className="space-y-2.5">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {link.label}
-                    </a>
+                    {link.href.startsWith('/') ? (
+                      <Link
+                        href={link.href}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {link.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={link.href}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
