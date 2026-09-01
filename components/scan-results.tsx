@@ -32,12 +32,7 @@ import { Recommendations } from '@/components/recommendations';
 import { RawHeadersAccordion } from '@/components/raw-headers-accordion';
 import { VulnerabilitySummary } from '@/components/vulnerability-summary';
 import { useToast } from '@/hooks/use-toast';
-import {
-  exportJson,
-  exportTextReport,
-  copyResults,
-  shareResults,
-} from '@/lib/export';
+import { exportJson, exportPdfReport, copyResults, shareResults } from '@/lib/export';
 import type { ScanResult } from '@/lib/types';
 
 interface ScanResultsProps {
@@ -55,10 +50,9 @@ export function ScanResults({ result, onRescan, onNewScan }: ScanResultsProps) {
     timeStyle: 'short',
   });
 
-  const durationText =
-    result.scanDurationMs < 1000
-      ? `${result.scanDurationMs}ms`
-      : `${(result.scanDurationMs / 1000).toFixed(2)}s`;
+  const durationText = result.scanDurationMs < 1000
+    ? `${result.scanDurationMs}ms`
+    : `${(result.scanDurationMs / 1000).toFixed(2)}s`;
 
   const handleCopy = async () => {
     try {
@@ -86,8 +80,12 @@ export function ScanResults({ result, onRescan, onNewScan }: ScanResultsProps) {
   };
 
   const handleExportReport = () => {
-    exportTextReport(result);
-    toast({ title: 'Report exported', description: 'Security report downloaded as text.' });
+    try {
+      exportPdfReport(result);
+      toast({ title: 'PDF exported', description: 'Branded WebShield security report downloaded as PDF.' });
+    } catch {
+      toast({ title: 'PDF export failed', description: 'Could not generate the security report.', variant: 'destructive' });
+    }
   };
 
   const hasRedirect = result.finalUrl !== result.url;
