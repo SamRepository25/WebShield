@@ -10,9 +10,11 @@ from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from rate_limit import check_rate_limit
 
 app = FastAPI(
     title="WebShield API",
@@ -287,9 +289,18 @@ def health() -> dict:
 
 
 @app.post("/api/scan", response_model=ScanResponse)
-def scan(request: ScanRequest) -> ScanResponse:
+def scan(request: Request, payload: ScanRequest) -> ScanResponse:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    identifier = forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
     try:
-        current_url = assert_public_target(request.url)
+        allowed, retry_after = check_rate_limit(identifier)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Rate limiter unavailable. Please try again later.") from exc
+    if not allowed:
+        raise HTTPException(status_code=429, detail=f"Too many scan requests. Please try again in {retry_after} seconds.", headers={"Retry-After": str(retry_after)})
+
+    try:
+        current_url = assert_public_target(payload.url)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
