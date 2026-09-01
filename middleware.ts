@@ -23,39 +23,44 @@ function isProtectedPath(pathname: string): boolean {
   );
 }
 
-export function middleware(request: NextRequest): NextResponse {
-  const response = NextResponse.next();
+function withSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
+}
 
-  if (!isProtectedPath(request.nextUrl.pathname)) return response;
+export function middleware(request: NextRequest): NextResponse {
+  if (!isProtectedPath(request.nextUrl.pathname)) {
+    return withSecurityHeaders(NextResponse.next());
+  }
 
   const username = process.env.ADMIN_USERNAME;
   const password = process.env.ADMIN_PASSWORD;
 
   if (!username || !password) {
-    return NextResponse.json({ detail: 'Admin access is not configured.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+    return withSecurityHeaders(NextResponse.json({ detail: 'Admin access is not configured.' }, { status: 503 }));
   }
 
   const authorization = request.headers.get('authorization');
   if (!authorization?.startsWith('Basic ')) {
-    return new NextResponse('Authentication required.', {
+    return withSecurityHeaders(new NextResponse('Authentication required.', {
       status: 401,
-      headers: {
-        'WWW-Authenticate': 'Basic realm="WebShield Admin", charset="UTF-8"',
-        'Cache-Control': 'no-store',
-      },
-    });
+      headers: { 'WWW-Authenticate': 'Basic realm="WebShield Admin", charset="UTF-8"' },
+    }));
   }
 
   let decoded = '';
   try {
     decoded = atob(authorization.slice(6));
   } catch {
-    return new NextResponse('Invalid authentication.', { status: 401, headers: { 'WWW-Authenticate': 'Basic realm="WebShield Admin"' } });
+    return withSecurityHeaders(new NextResponse('Invalid authentication.', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="WebShield Admin"' },
+    }));
   }
 
   const separator = decoded.indexOf(':');
@@ -63,18 +68,16 @@ export function middleware(request: NextRequest): NextResponse {
   const providedPassword = separator >= 0 ? decoded.slice(separator + 1) : '';
 
   if (!constantTimeEqual(providedUsername, username) || !constantTimeEqual(providedPassword, password)) {
-    return new NextResponse('Invalid credentials.', {
+    return withSecurityHeaders(new NextResponse('Invalid credentials.', {
       status: 401,
-      headers: {
-        'WWW-Authenticate': 'Basic realm="WebShield Admin", charset="UTF-8"',
-        'Cache-Control': 'no-store',
-      },
-    });
+      headers: { 'WWW-Authenticate': 'Basic realm="WebShield Admin", charset="UTF-8"' },
+    }));
   }
 
-  return response;
+  return withSecurityHeaders(NextResponse.next());
 }
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  runtime: 'nodejs',
 };
