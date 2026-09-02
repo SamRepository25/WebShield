@@ -1,4 +1,5 @@
 import tls from 'node:tls';
+import { assertPublicUrl, safeFetch } from '@/lib/security';
 import type {
   ScanResult,
   SecurityHeader,
@@ -454,7 +455,11 @@ async function checkHttpToHttpsUpgrade(hostname: string): Promise<boolean> {
   try {
     while (hops <= MAX_REDIRECTS) {
       if (currentUrl.startsWith('https://')) return true;
-      const res = await fetch(currentUrl, {
+      // Re-validate on every hop: a redirect can point anywhere, including
+      // at a private/internal address, so each destination is checked
+      // exactly like a fresh scan target before it's followed.
+      currentUrl = await assertPublicUrl(currentUrl);
+      const res = await safeFetch(currentUrl, {
         method: 'GET',
         redirect: 'manual',
         signal: AbortSignal.timeout(8000),
@@ -1079,7 +1084,11 @@ function mapFetchError(message: string, hostname: string): ScanError {
 
 export async function runScan(rawUrl: string): Promise<ScanResult> {
   const startTime = Date.now();
-  const url = normalizeUrl(rawUrl);
+  // assertPublicUrl() is the SSRF gate for the scan itself: it applies
+  // regardless of which caller invoked runScan (the public /api/scan
+  // route, a monitored-site re-scan, or the scheduler), so this
+  // protection can't be bypassed by calling runScan() directly.
+  const url = await assertPublicUrl(normalizeUrl(rawUrl));
   const parsed = new URL(url);
   const hostname = parsed.hostname;
 
@@ -1091,7 +1100,7 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
 
   try {
     while (redirectCount <= MAX_REDIRECTS) {
-      const res = await fetch(currentUrl, {
+      const res = await safeFetch(currentUrl, {
         method: 'GET',
         headers: { 'User-Agent': USER_AGENT },
         redirect: 'manual',
@@ -1114,7 +1123,10 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
           finalResponse = res;
           break;
         }
-        currentUrl = new URL(location, currentUrl).href;
+        // Every redirect destination is re-validated before it's followed,
+        // the same way the initial URL is — this is what stops a
+        // public-URL-to-private-address redirect chain.
+        currentUrl = await assertPublicUrl(new URL(location, currentUrl).href);
         redirectCount++;
         continue;
       }
@@ -1122,6 +1134,9 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
       break;
     }
   } catch (err) {
+    if (err instanceof Error && /private|internal|reserved|resolve|credentials|ports|supported/i.test(err.message)) {
+      throw new ScanError(err.message, 400);
+    }
     throw mapFetchError((err as Error).message ?? '', hostname);
   }
 

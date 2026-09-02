@@ -1,4 +1,5 @@
 import { runScan, ScanError, gradeFromScore } from '@/lib/scanner';
+import { assertPublicUrl } from '@/lib/security';
 import {
   sendWebsiteDownAlert,
   sendWebsiteRecoveredAlert,
@@ -31,19 +32,13 @@ import {
   getDueSites as getDueSitesStore,
 } from '@/lib/monitoring-store';
 
-function normalizeUrl(raw: string): string {
-  let url = raw.trim();
-  if (!url) throw new Error('URL is required.');
-  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error('Please provide a valid website URL.');
-  }
-  if (!parsed.hostname || !parsed.hostname.includes('.'))
-    throw new Error('Please provide a valid website URL.');
-  return url;
+// A monitored site's URL gets fetched automatically, on a schedule, with
+// no human reviewing it at scan time — so it's validated with the same
+// SSRF check used for the public scanner at the point it's saved, not
+// just when it's scanned. This also stops the scheduler and manual
+// re-scans from ever reaching runScan() with an unvalidated stored URL.
+async function normalizeUrl(raw: string): Promise<string> {
+  return assertPublicUrl(raw);
 }
 
 function computeNextScanAt(frequency: ScanFrequency, from: Date = new Date()): string {
@@ -57,7 +52,7 @@ export async function listSites(): Promise<MonitoredSite[]> {
 export async function createSite(input: MonitoredSiteInput): Promise<MonitoredSite> {
   const name = input.name?.trim();
   if (!name) throw new Error('Site name is required.');
-  const url = normalizeUrl(input.url);
+  const url = await normalizeUrl(input.url);
   const frequency = input.frequency ?? 'daily';
   const monitoringEnabled = input.monitoring_enabled ?? true;
 
@@ -83,7 +78,7 @@ export async function updateSite(
     if (!name) throw new Error('Site name cannot be empty.');
     fields.name = name;
   }
-  if (input.url !== undefined) fields.url = normalizeUrl(input.url);
+  if (input.url !== undefined) fields.url = await normalizeUrl(input.url);
   if (input.frequency !== undefined) {
     fields.frequency = input.frequency;
     if (existing.monitoring_enabled) {

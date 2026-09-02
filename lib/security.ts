@@ -1,5 +1,6 @@
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { Agent } from 'undici';
 
 function normalizeIp(ip: string): string {
   return ip.replace(/^\[|\]$/g, '').toLowerCase();
@@ -16,6 +17,7 @@ function isPrivateIpv4(ip: string): boolean {
     [0x7f000000, 0x7fffffff],
     [0xa9fe0000, 0xa9feffff],
     [0xac100000, 0xac1fffff],
+    [0xc0a80000, 0xc0a8ffff],
     [0xc0000000, 0xc00000ff],
     [0xc0000200, 0xc00002ff],
     [0xc0006400, 0xc00064ff],
@@ -78,7 +80,13 @@ export function isBlockedAddress(address: string): boolean {
 export async function assertPublicUrl(raw: string): Promise<string> {
   let url = raw.trim();
   if (!url) throw new Error('URL is required.');
-  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  // Only default a bare hostname (no scheme at all, e.g. "example.com")
+  // to https://. A string with some other explicit "scheme://" (file://,
+  // ftp://, gopher://, ws://, ...) must be parsed as-is so the http/https
+  // check below can reject it by protocol — blindly prefixing it here
+  // would instead treat the scheme text as part of a bogus hostname and
+  // send it to a DNS lookup instead of cleanly refusing it.
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) url = `https://${url}`;
 
   let parsed: URL;
   try {
@@ -113,4 +121,45 @@ export async function assertPublicUrl(raw: string): Promise<string> {
   }
 
   return parsed.toString();
+}
+
+// assertPublicUrl() validates DNS results at check time, but Node's global
+// fetch() performs its own, separate DNS resolution when it actually opens
+// the connection. That gap between "checked" and "connected" is exactly
+// what DNS-rebinding attacks exploit: the name resolves to a public IP
+// during the check and to a private/internal IP a moment later during the
+// real connect. `secureDispatcher` closes that gap by re-validating every
+// address at the moment a socket is opened, for every request made through
+// it — regardless of how the process was started (it does not depend on
+// any `-r`/`--require` flag being set by the deploy platform).
+function lookupPublicOnly(
+  hostname: string,
+  options: { family?: number },
+  callback: (err: Error | null, addresses: Array<{ address: string; family: number }>) => void
+): void {
+  dns
+    .lookup(hostname, { all: true, verbatim: true })
+    .then((records) => {
+      let usable = records.filter((record) => !isBlockedAddress(record.address));
+      if (options.family) usable = usable.filter((r) => r.family === options.family);
+      if (!usable.length) {
+        callback(new Error('The target resolves to a private or reserved network address.'), []);
+        return;
+      }
+      callback(null, usable);
+    })
+    .catch(() => callback(new Error('Could not resolve the target hostname.'), []));
+}
+
+export const secureDispatcher = new Agent({
+  connect: {
+    lookup: lookupPublicOnly,
+  },
+});
+
+// Wrapper around fetch() that always routes through secureDispatcher, so
+// every outbound scan request is protected against DNS rebinding at the
+// socket layer, on top of the upfront assertPublicUrl() check.
+export function safeFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, { ...init, dispatcher: secureDispatcher } as RequestInit);
 }

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "node -r ./lib/fetch-guard.cjs node_modules/next/dist/bin/next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -73,5 +74,8 @@
     "undici": "^6.28.0",
     "vaul": "^0.9.9",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
   }
 }
