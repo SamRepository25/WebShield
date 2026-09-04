@@ -33,7 +33,7 @@ export const metadata: Metadata = {
       'Scan any website for security vulnerabilities, HTTPS status, security headers, and get actionable recommendations.',
     type: 'website',
     siteName: 'WebShield',
-    url: 'https://webshield.app',
+    url: 'https://webshield-zpv1.onrender.com/',
   },
   twitter: {
     card: 'summary_large_image',
