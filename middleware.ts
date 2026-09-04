@@ -65,8 +65,13 @@ export function middleware(request: NextRequest): NextResponse {
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', buildCsp(nonce));
   const nextInit = { request: { headers: requestHeaders } };
+  const pathname = request.nextUrl.pathname;
 
-  if (!isProtectedPath(request.nextUrl.pathname)) {
+  if (process.env.MAINTENANCE_MODE === 'true' && pathname !== '/maintenance' && !isProtectedPath(pathname)) {
+    return withSecurityHeaders(NextResponse.rewrite(new URL('/maintenance', request.url), nextInit), nonce);
+  }
+
+  if (!isProtectedPath(pathname)) {
     return withSecurityHeaders(NextResponse.next(nextInit), nonce);
   }
 
