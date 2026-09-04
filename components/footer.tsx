@@ -3,9 +3,13 @@ import { Shield, Github, Linkedin } from 'lucide-react';
 
 const footerLinks = {
   Product: [
-    { label: 'Features', href: '#features' },
-    { label: 'How It Works', href: '#how-it-works' },
-    { label: 'Scan', href: '#scanner' },
+    // Home-anchored ('/#features') rather than bare ('#features') so
+    // these still work from other pages like /about — a bare hash link
+    // only scrolls if you're already on the homepage; anywhere else it's
+    // a dead link.
+    { label: 'Features', href: '/#features' },
+    { label: 'How It Works', href: '/#how-it-works' },
+    { label: 'Scan', href: '/#scanner' },
   ],
   Resources: [
     { label: 'Security Headers Guide', href: '/security-headers' },

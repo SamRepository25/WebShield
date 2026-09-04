@@ -19,7 +19,7 @@ export default function ContactPage() {
               <MessageSquare className="h-7 w-7 text-primary" aria-hidden="true" />
             </div>
             <p className="mt-6 text-sm font-semibold uppercase tracking-[0.2em] text-primary">Contact</p>
-            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-6xl">Let's talk about WebShield.</h1>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-6xl">Let&apos;s talk about WebShield.</h1>
             <p className="mt-6 text-base leading-8 text-muted-foreground sm:text-lg">
               Have feedback, found a bug, or want to discuss the project? The best place to reach the WebShield project is through GitHub, where issues and suggestions can be tracked openly.
             </p>
@@ -49,7 +49,7 @@ export default function ContactPage() {
             <div className="glass rounded-2xl p-6">
               <Shield className="h-6 w-6 text-primary" aria-hidden="true" />
               <h2 className="mt-4 text-lg font-semibold">Security reports</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">For security issues, please use the repository's issue and security-reporting mechanisms rather than sharing sensitive details publicly.</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">For security issues, please use the repository&apos;s issue and security-reporting mechanisms rather than sharing sensitive details publicly.</p>
             </div>
             <div className="glass rounded-2xl p-6">
               <MessageSquare className="h-6 w-6 text-primary" aria-hidden="true" />

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "node -r ./lib/fetch-guard.cjs node_modules/next/dist/bin/next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -15,6 +16,7 @@
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-aspect-ratio": "^1.1.1",
+    "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-collapsible": "^1.1.1",
     "@radix-ui/react-context-menu": "^2.2.1",
@@ -62,15 +64,19 @@
     "react-day-picker": "^8.10.2",
     "react-dom": "19.2.1",
     "react-hook-form": "^7.53.0",
-    "react-resizable-panels": "^2.1.3",
-    "recharts": "^2.12.7",
-    "sonner": "^1.5.0",
+    "react-is": "^19.2.1",
+    "react-resizable-panels": "^2.1.5",
+    "recharts": "^2.15.0",
+    "sonner": "^1.6.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss": "3.3.3",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.2.2",
     "undici": "^6.28.0",
-    "vaul": "^0.9.9",
+    "vaul": "^1.1.1",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
   }
 }

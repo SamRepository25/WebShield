@@ -40,7 +40,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(site, { status: 201 });
   } catch (err) {
     const msg = (err as Error).message ?? 'Failed to create site.';
-    const status = /valid website URL|URL is required|Site name/i.test(msg) ? 400 : 500;
+    const status = /valid website URL|URL is required|Site name|private|internal|reserved|resolve|credentials|ports|supported/i.test(msg)
+      ? 400
+      : 500;
     return NextResponse.json({ detail: msg }, { status });
   }
 }

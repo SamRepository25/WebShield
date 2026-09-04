@@ -19,7 +19,7 @@ export default function AboutPage() {
               <Shield className="h-7 w-7 text-primary" aria-hidden="true" />
             </div>
             <p className="mt-6 text-sm font-semibold uppercase tracking-[0.2em] text-primary">About WebShield</p>
-            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-6xl">Understand your website's security posture.</h1>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-6xl">Understand your website&apos;s security posture.</h1>
             <p className="mt-6 text-base leading-8 text-muted-foreground sm:text-lg">
               WebShield is a modern website security analyzer built to make common web security checks fast, clear, and actionable. It examines HTTPS configuration, security headers, SSL/TLS information, and common security signals to produce an easy-to-understand report.
             </p>
@@ -46,7 +46,7 @@ export default function AboutPage() {
           <div className="glass mt-6 rounded-2xl p-6 sm:p-8">
             <h2 className="text-2xl font-bold">Built for practical security checks</h2>
             <p className="mt-4 leading-7 text-muted-foreground">
-              WebShield focuses on security information that can be observed from a website's public HTTP response. It is designed as an assessment and education tool, not as a replacement for a full penetration test, source-code audit, or professional security assessment.
+              WebShield focuses on security information that can be observed from a website&apos;s public HTTP response. It is designed as an assessment and education tool, not as a replacement for a full penetration test, source-code audit, or professional security assessment.
             </p>
             <div className="mt-6">
               <Button asChild className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
